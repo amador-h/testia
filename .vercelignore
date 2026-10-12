@@ -16,3 +16,9 @@ frontend/dist/
 
 # Documentación del curso, no necesaria para ejecutar la app
 Practica_UD1_Explotacion_Despliegue_IA.md
+
+# Artefactos solo para Docker/EC2 y tests (Vercel no ejecuta contenedores)
+Dockerfile
+.dockerignore
+backend/tests/
+evidencias/

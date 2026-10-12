@@ -1,0 +1,24 @@
+# Contexto de construcción mínimo: nada de secretos ni artefactos locales.
+
+# Secretos y configuración local (se inyectan con --env-file al ejecutar)
+.env
+.env.*
+*.pem
+*.key
+.vercel/
+
+# Git, entornos, cachés y artefactos (la SPA se compila dentro de la imagen)
+.git/
+.venv/
+**/__pycache__/
+.pytest_cache/
+*.egg-info/
+**/node_modules/
+frontend/dist/
+
+# Tests, documentación y evidencias: no hacen falta para ejecutar la app
+backend/tests/
+evidencias/
+*.md
+Dockerfile
+.dockerignore
