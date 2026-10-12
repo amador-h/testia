@@ -140,7 +140,7 @@ Variables del proyecto (`vercel env ls`; los secretos no se pueden leer, la clav
 - **Orígenes:** no se usa CORS (SPA y API comparten origen en ambos entornos). Los orígenes válidos se controlan con `azp`.
 - **Ocultar el botón no es la protección:** la protección real es la validación en FastAPI.
 
-Rechazo sin token en producción:
+Rechazo sin token en producción (`cuerpo.json` = `{"apuntes":"La fotosíntesis convierte luz en energía","num_preguntas":3}`):
 
 ```console
 $ curl -i -X POST https://testia.vercel.app/api/generar -H "Content-Type: application/json" --data-binary @cuerpo.json
@@ -385,6 +385,8 @@ En Vercel, el proyecto se puede conservar (plan gratuito) o borrar con `vercel p
 | `v0.4-auth` | Clerk en SPA y backend, redespliegue | https://testia.vercel.app |
 | `v0.5-docker` | Imagen única probada en local | http://localhost:8080 |
 | `v1.0-aws` | Despliegue en EC2 con Docker | http://54.235.82.94 |
+
+Cada tag tiene su [release de GitHub](https://github.com/amador-h/testia/releases) con un resumen del hito; `v1.0-aws` es la versión final (*Latest*).
 
 Evidencias en [`evidencias/`](evidencias/) (nombre, correo, ID de cuenta e IP del administrador ocultos):
 
