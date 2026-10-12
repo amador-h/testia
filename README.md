@@ -204,4 +204,10 @@ Resultado: `6 passed`.
 | `v0.5-docker` | Imagen única probada en local | http://localhost:8080 |
 | `v1.0-aws` | `TODO` Despliegue en EC2 | `TODO` |
 
-Evidencias en [`evidencias/`](evidencias/): `TODO` (qué demuestra cada captura).
+Evidencias en [`evidencias/`](evidencias/) (datos personales ocultos):
+
+| Captura | Qué demuestra |
+| --- | --- |
+| [`vercel-clerk-login.png`](evidencias/vercel-clerk-login.png) | En https://testia.vercel.app, sin sesión el formulario no permite generar; el modal de Clerk muestra *Development mode* (instancia de desarrollo). |
+| [`vercel-clerk-sesion-test.png`](evidencias/vercel-clerk-sesion-test.png) | Con sesión iniciada aparecen *Cerrar sesión* y el menú de usuario, y el test se genera con respuesta real de la IA (en `vercel logs`: `POST /api/generar` → OpenRouter `200 OK`). |
+| `TODO` | Docker local, EC2, Security Group, `vercel env ls`, rechazo sin token. |
