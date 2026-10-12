@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+  }
+
+  body {
+    @apply bg-slate-50 font-sans text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+  }
+
+  /* Resplandor suave de acento detrás de la cabecera (decorativo) */
+  body::before {
+    content: "";
+    @apply pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem];
+    background:
+      radial-gradient(46rem 20rem at 12% -6rem, rgb(99 102 241 / 0.14), transparent 70%),
+      radial-gradient(36rem 16rem at 90% -4rem, rgb(168 85 247 / 0.10), transparent 70%);
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-indigo-500;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
