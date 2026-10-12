@@ -25,9 +25,9 @@ const botonPrincipal =
   'inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-[15px] font-semibold text-white ' +
   'shadow-sm shadow-indigo-600/30 transition hover:bg-indigo-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70'
 
-const botonSecundario =
-  'rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 ' +
-  'dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
+const botonCabecera =
+  'rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition ' +
+  'hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
 
 const botonPaso =
   'flex size-10 items-center justify-center text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 ' +
@@ -92,8 +92,8 @@ export default function App() {
   const mensaje = ratio === 1 ? '¡Perfecto!' : ratio >= 0.7 ? '¡Muy bien!' : ratio >= 0.4 ? 'Vas por buen camino' : 'A repasar un poco más'
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-5 pb-16 lg:h-dvh lg:min-h-0 lg:pb-5">
-      <header className="flex items-center gap-2.5 py-6 lg:py-3">
+    <div className="mx-auto max-w-6xl px-5 pb-16">
+      <header className="flex items-center gap-2.5 py-5">
         <span className="flex size-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-600/30">
           <IconSpark className="size-5" />
         </span>
@@ -101,14 +101,14 @@ export default function App() {
         <div className="ml-auto flex items-center gap-2">
           <Show when="signed-out">
             <SignInButton mode="modal">
-              <button type="button" className={botonSecundario}>
+              <button type="button" className={botonCabecera}>
                 Iniciar sesión
               </button>
             </SignInButton>
           </Show>
           <Show when="signed-in">
             <SignOutButton>
-              <button type="button" className={botonSecundario}>
+              <button type="button" className={botonCabecera}>
                 Cerrar sesión
               </button>
             </SignOutButton>
@@ -117,24 +117,24 @@ export default function App() {
         </div>
       </header>
 
-      <div className="mt-6 mb-12 max-w-2xl sm:mt-10 lg:mt-0 lg:mb-4 lg:max-w-none">
-        <h1 className="text-4xl leading-[1.1] font-bold tracking-tight text-balance sm:text-5xl lg:text-3xl">
+      <div className="mt-8 mb-10 max-w-2xl sm:mt-12">
+        <h1 className="text-4xl leading-[1.1] font-bold tracking-tight text-balance sm:text-5xl">
           Convierte tus apuntes en{' '}
           <span className="bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text whitespace-nowrap text-transparent dark:from-indigo-400 dark:to-violet-300">
             un test
           </span>
         </h1>
-        <p className="mt-4 text-lg text-slate-600 text-pretty lg:mt-1 lg:text-base dark:text-slate-400">
+        <p className="mt-4 text-lg text-slate-600 text-pretty dark:text-slate-400">
           Pega un texto y practica con preguntas que te explican cada respuesta.
         </p>
       </div>
 
-      <main className="grid items-start gap-8 lg:min-h-0 lg:flex-1 lg:grid-cols-[26rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:items-stretch lg:gap-6">
+      <main className="grid items-start gap-6 lg:grid-cols-[26rem_minmax(0,1fr)] lg:gap-8">
         <form
           onSubmit={enviar}
-          className="flex flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:min-h-0 lg:gap-4 lg:overflow-y-auto lg:p-5 dark:border-slate-800 dark:bg-slate-900"
+          className="flex flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:sticky lg:top-6 dark:border-slate-800 dark:bg-slate-900"
         >
-          <div className="flex flex-col lg:min-h-28 lg:flex-1">
+          <div className="flex flex-col">
             <div className="mb-2 flex items-baseline justify-between">
               <label htmlFor="apuntes" className="text-sm font-medium">
                 Apuntes
@@ -146,11 +146,11 @@ export default function App() {
             <textarea
               id="apuntes"
               ref={apuntesRef}
-              rows={9}
+              rows={10}
               maxLength={MAX_APUNTES}
               value={apuntes}
               onChange={(e) => setApuntes(e.target.value)}
-              className={`${entrada} resize-y leading-relaxed lg:min-h-0 lg:flex-1 lg:resize-none`}
+              className={`${entrada} min-h-40 resize-y leading-relaxed`}
               placeholder="Pega aquí el texto que quieres repasar…"
             />
           </div>
@@ -248,10 +248,10 @@ export default function App() {
         <section
           aria-live="polite"
           aria-busy={cargando}
-          className="min-w-0 space-y-5 lg:min-h-0 lg:overflow-y-auto lg:pr-2 lg:[scrollbar-width:thin]"
+          className="min-w-0 space-y-5 lg:self-stretch"
         >
           {total === 0 && !cargando && (
-            <div className="rounded-2xl border border-dashed border-slate-300 p-6 sm:p-8 dark:border-slate-700">
+            <div className="flex h-full flex-col justify-center rounded-2xl border border-dashed border-slate-300 bg-white/40 p-6 sm:p-10 dark:border-slate-700 dark:bg-slate-900/30">
               <h2 className="text-lg font-semibold">Tu test aparecerá aquí</h2>
               <ol className="mt-5 space-y-4">
                 {PASOS.map(([titulo, detalle], i) => (
@@ -287,7 +287,7 @@ export default function App() {
 
           {total > 0 && (
             <>
-              <div className="sticky top-3 z-10 rounded-xl lg:top-0 border border-slate-200 bg-white/85 px-4 py-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/85">
+              <div className="sticky top-3 z-10 rounded-xl border border-slate-200 bg-white/85 px-4 py-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/85">
                 <div className="mb-2 flex items-baseline justify-between text-sm">
                   <span className="font-semibold">Tu test</span>
                   <span className="text-slate-600 tabular-nums dark:text-slate-400">
