@@ -331,6 +331,16 @@ docker run -d --name testia --env-file /opt/testia/testia.env -p 80:8000 --resta
 docker image prune -f                       # borra imágenes sin usar
 ```
 
+Procedimiento ejecutado para pasar EC2 de `c1347c2` a `v1.0-aws`:
+
+```console
+antes:   testia:c1347c2
+después: testia:55ccc4d  (tag v1.0-aws)
+testia    testia:55ccc4d   Up 10 seconds (health: starting)   0.0.0.0:80->8000/tcp
+$ curl http://54.235.82.94/api/health          -> 200 {"status":"ok"}
+$ curl -X POST http://54.235.82.94/api/generar -> 401 (sin token)
+```
+
 Hasta el `prune` la imagen anterior se conserva con su etiqueta, así que volver atrás es arrancar el contenedor con la etiqueta antigua. En Vercel, una actualización es `vercel deploy` (Preview), comprobar, y `vercel deploy --prod`.
 
 **Disponibilidad para la defensa y retirada de recursos:**
