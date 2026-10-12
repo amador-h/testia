@@ -137,7 +137,7 @@ Variables del proyecto (`vercel env ls`; los secretos no se pueden leer, la clav
 - **Comprobación en Clerk:** *Logs → Application* registra `sign_in.created`, `sign_in.email_address.verified`, `sign_in.completed` y `session.created` para cada inicio de sesión.
 - **SPA** (`@clerk/react`): `ClerkProvider` con la clave pública y textos en español; en la cabecera, *Iniciar sesión* (modal de Clerk) o *Cerrar sesión* + `UserButton`. Sin sesión, el botón del formulario abre el inicio de sesión. Al enviar, `getToken()` obtiene el token y se manda como `Authorization: Bearer`.
 - **Backend** ([`backend/app/auth.py`](backend/app/auth.py)): dependencia `usuario_autenticado` en `POST /api/generar` con el SDK oficial `clerk-backend-api` (`authenticate_request`): descarga la JWKS con `CLERK_SECRET_KEY`, comprueba **firma**, **caducidad** (`exp`/`nbf`), que el token sea de sesión y que el **`azp`** esté en `CLERK_AUTHORIZED_PARTIES`. Si falla → `401` con `WWW-Authenticate: Bearer` y la IA no se llama. En los logs solo se registra el motivo (`SESSION_TOKEN_MISSING`, `TOKEN_INVALID`, `AZP_NO_PERMITIDO`…), nunca el token. `/api/health` sigue siendo público y no revela nada.
-- **Orígenes:** no se usa CORS (SPA y API comparten origen en ambos entornos). Los orígenes válidos se controlan con `azp`.
+- **Orígenes y redirecciones:** no se usa CORS (SPA y API comparten origen en todos los entornos). La instancia de desarrollo de Clerk acepta cualquier origen, así que el control está en el backend: `CLERK_AUTHORIZED_PARTIES` fija, por entorno, qué orígenes (`azp`) son válidos (tabla de la sección 5). El inicio de sesión es un modal (sin redirección de ida) y tras cerrar sesión se vuelve a `/` (`afterSignOutUrl`), que es la misma ruta en Vercel, Docker y EC2; por eso no hay que registrar URLs de redirección.
 - **Ocultar el botón no es la protección:** la protección real es la validación en FastAPI.
 
 Rechazo sin token en producción (`cuerpo.json` = `{"apuntes":"La fotosíntesis convierte luz en energía","num_preguntas":3}`):
@@ -173,6 +173,7 @@ docker rm -f testia                     # retirar
 
 - **Puerto:** `uvicorn` escucha en `0.0.0.0:8000` dentro del contenedor (en `127.0.0.1` no llegaría el tráfico del puerto publicado); en local se publica en `8080` y en EC2 en `80`.
 - **Etiqueta de la imagen:** el commit corto, para saber qué versión corre (`docker ps` muestra `testia:2e6f869`).
+- **Parar e iniciar** (comprobado): `docker stop testia` → `Exited (0)`; `docker start testia` → `Up … (healthy)` y `/api/health` → `200`.
 - **Prueba local:** contenedor `healthy`, SPA en http://localhost:8080, inicio de sesión con Clerk y test generado (`200`), `401` sin token, ningún secreto en `docker history`, proceso como usuario `app`.
 
 ```console
