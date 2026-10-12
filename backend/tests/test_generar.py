@@ -97,3 +97,14 @@ def test_sin_token_valido_se_rechaza_sin_llamar_a_la_ia(monkeypatch):
     assert sin_token.status_code == 401 and token_falso.status_code == 401
     assert sin_token.headers["www-authenticate"] == "Bearer"
     assert llamadas == []
+
+
+def test_origenes_permitidos_admiten_comodin_de_preview():
+    from backend.app.auth import _origen_permitido
+
+    permitidos = ["https://testia.vercel.app", "https://testia-*-ies-zaidin-vergeles.vercel.app"]
+    assert _origen_permitido("https://testia.vercel.app", permitidos)
+    assert _origen_permitido("https://testia-96ssdr00x-ies-zaidin-vergeles.vercel.app", permitidos)
+    assert not _origen_permitido("https://testia-x.evil.com/-ies-zaidin-vergeles.vercel.app", permitidos)
+    assert not _origen_permitido("https://otra.vercel.app", permitidos)
+    assert not _origen_permitido(None, permitidos)
