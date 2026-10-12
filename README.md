@@ -7,7 +7,7 @@ Práctica UD1 del módulo *Explotación de Servicios de Procesamiento y Analíti
 | Vercel (serverless) | https://testia.vercel.app | `v0.4-auth` (commit `2e6f869`) |
 | AWS EC2 (Docker) | http://54.235.82.94 | `v1.0-aws` |
 
-> Estado: Vercel + Clerk (`v0.4-auth`), Docker (`v0.5-docker`) y AWS EC2 (`v1.0-aws`) desplegados. Las secciones con `TODO` se completan al cerrar cada hito.
+> Estado: completo. Vercel + Clerk (`v0.4-auth`), Docker (`v0.5-docker`) y AWS EC2 (`v1.0-aws`) desplegados y verificados con sesión de Clerk y rechazo sin token.
 
 ## 1. Identificación
 
@@ -113,6 +113,18 @@ Subida de un secreto sin que aparezca en el comando ni en el historial (PowerShe
 $sk = (Get-Content .env | Where-Object { $_ -match '^CLERK_SECRET_KEY=' }) -replace '^CLERK_SECRET_KEY=', ''
 $sk | vercel.cmd env add CLERK_SECRET_KEY production --sensitive --yes
 Remove-Variable sk
+```
+
+Variables del proyecto (`vercel env ls`; los secretos no se pueden leer, la clave pública se muestra como tal):
+
+```console
+ name                         value            type     environments
+ CLERK_AUTHORIZED_PARTIES     Hidden           Secret   Preview / Production
+ CLERK_SECRET_KEY             Hidden           Secret   Preview / Production
+ VITE_CLERK_PUBLISHABLE_KEY   (valor público)  Config   Preview / Production
+ OPENROUTER_API_KEY           Hidden           Secret   Preview / Production
+ OPENROUTER_MODEL             Hidden           Secret   Preview / Production
+ OPENROUTER_TIMEOUT_SECONDS   Hidden           Secret   Preview / Production
 ```
 
 **Protección:** las Preview siguen protegidas por *Vercel Authentication* (*Standard Protection*); la URL de producción es pública para la evaluación, y la API de IA la protege Clerk.
@@ -243,6 +255,34 @@ docker run -d --name testia --env-file /opt/testia/testia.env -p 80:8000 --resta
 
 **Limitación: HTTP sin cifrar.** En EC2 no hay HTTPS (simplificación permitida por el enunciado), así que el token de sesión de Clerk y los apuntes viajan en claro y podrían leerse en una red no confiable. Solo se usan cuentas y textos de prueba. Clerk funciona en este origen con su instancia de desarrollo (comprobado: `window.Clerk.loaded = true` aunque `isSecureContext = false`). En un entorno real se usaría un dominio con certificado TLS.
 
+**Evidencias de la instancia** (AWS CLI; IP del administrador y de los clientes enmascaradas):
+
+```console
+$ aws ec2 describe-instances --instance-ids i-0b4ff0c5a687e115d --output table --query ...
+|  Id           |  i-0b4ff0c5a687e115d    |
+|  Nombre       |  testia                 |
+|  Tipo         |  t3.micro               |
+|  Estado       |  running                |
+|  AZ           |  us-east-1b             |
+|  IP           |  54.235.82.94           |
+|  Arquitectura |  x86_64                 |
+|  AMI          |  ami-097855b862d5b1eb2  (al2023-ami-2023.12.20261012.0-kernel-6.18-x86_64)
+
+$ aws ec2 describe-security-groups --group-names testia-sg --output table --query ...
+|     Descripcion    |   Origen       | Protocolo | Puerto |
+|  HTTP app Testia   |  0.0.0.0/0     |  tcp      |  80    |
+|  SSH administrador |  IP_ADMIN/32   |  tcp      |  22    |
+
+$ ssh ec2-user@54.235.82.94 "docker ps; docker logs testia | grep generar"
+NAMES     IMAGE            STATUS                    PORTS
+testia    testia:c1347c2   Up 12 minutes (healthy)   0.0.0.0:80->8000/tcp, :::80->8000/tcp
+Petición rechazada por autenticación: SESSION_TOKEN_MISSING
+INFO:     IP_CLIENTE - "POST /api/generar HTTP/1.1" 401 Unauthorized
+Petición rechazada por autenticación: TOKEN_INVALID
+INFO:     IP_CLIENTE - "POST /api/generar HTTP/1.1" 401 Unauthorized
+INFO:     IP_CLIENTE - "POST /api/generar HTTP/1.1" 200 OK
+```
+
 ## 10. Operación y verificación
 
 **Tests automáticos** (`pytest`, sin llamadas de pago, IA simulada):
@@ -266,7 +306,7 @@ Resultado: `6 passed`.
 | `GET /api/health` | `{"status":"ok"}` | `{"status":"ok"}` (desde fuera de AWS) |
 | `POST /api/generar` sin token | `401` + `WWW-Authenticate: Bearer` | `401` + `WWW-Authenticate: Bearer` |
 | Con token inventado | `401` (`TOKEN_INVALID`) | `401` (`TOKEN_INVALID`) |
-| Inicio de sesión + test generado | `200`, OpenRouter `200 OK` | `TODO` |
+| Inicio de sesión + test generado | `200`, OpenRouter `200 OK` | `200` |
 | Puertos no publicados (8000, 2375) | — | Cerrados |
 
 **Estado y logs en EC2:**
@@ -333,11 +373,15 @@ En Vercel, el proyecto se puede conservar (plan gratuito) o borrar con `vercel p
 | `v0.5-docker` | Imagen única probada en local | http://localhost:8080 |
 | `v1.0-aws` | Despliegue en EC2 con Docker | http://54.235.82.94 |
 
-Evidencias en [`evidencias/`](evidencias/) (datos personales ocultos):
+Evidencias en [`evidencias/`](evidencias/) (nombre, correo, cuenta e IP del administrador ocultos):
 
 | Captura | Qué demuestra |
 | --- | --- |
+| [`vercel-pannel.png`](evidencias/vercel-pannel.png) | Proyecto único `testia` en Vercel: despliegue de producción `Ready` creado con `vercel deploy`, dominios `testia.vercel.app` y `expl-p1.vercel.app`, y en *Observability* peticiones a la CDN (SPA) e invocaciones de la función (FastAPI) del mismo proyecto. |
 | [`vercel-clerk-login.png`](evidencias/vercel-clerk-login.png) | En https://testia.vercel.app, sin sesión el formulario no permite generar; el modal de Clerk muestra *Development mode* (instancia de desarrollo). |
 | [`vercel-clerk-sesion-test.png`](evidencias/vercel-clerk-sesion-test.png) | Con sesión iniciada aparecen *Cerrar sesión* y el menú de usuario, y el test se genera con respuesta real de la IA (en `vercel logs`: `POST /api/generar` → OpenRouter `200 OK`). |
-| Logs de `docker logs testia` (sección 8) | Contenedor único `testia:2e6f869` `healthy` en `localhost:8080`; con sesión, `POST /api/generar` → `200 OK`; sin token, `401`. |
-| `TODO` | EC2, Security Group, `vercel env ls`, rechazo sin token. |
+| [`docker-app.png`](evidencias/docker-app.png) | Docker local: `docker ps` muestra un único contenedor `testia` `healthy` (`0.0.0.0:8080->8000`) y la app en `localhost:8080` con sesión y test generado. |
+| [`aws-ec2-pannel.png`](evidencias/aws-ec2-pannel.png) | Consola de EC2 en `us-east-1`: 1 instancia en ejecución, 1 IP elástica, coste `$0.00`. El detalle de la instancia (ID, tipo, estado, AMI) y las reglas del Security Group están en texto en la sección 9. |
+| [`aws-clerk-login.png`](evidencias/aws-clerk-login.png) | En http://54.235.82.94 (el navegador avisa de *No seguro*: HTTP), Clerk funciona y sin sesión no se puede generar. |
+| [`aws-clerk-session-test.png`](evidencias/aws-clerk-session-test.png) | En EC2, con sesión iniciada, test generado con respuesta real de la IA (en `docker logs`: `POST /api/generar` → `200 OK`). |
+| Salidas de consola (secciones 6–10) | `vercel env ls` sin valores, rechazo `401` sin token en Vercel y EC2, `docker ps`/`docker logs` en local y en EC2, instancia y Security Group con la AWS CLI. |
