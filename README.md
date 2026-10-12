@@ -4,7 +4,7 @@ Práctica UD1 del módulo *Explotación de Servicios de Procesamiento y Analíti
 
 | Entorno | URL | Versión desplegada |
 | --- | --- | --- |
-| Vercel (serverless) | https://testia.vercel.app | `v0.4-auth` (commit `9405363`) |
+| Vercel (serverless) | https://testia.vercel.app | `v0.4-auth` (commit `2e6f869`) |
 | AWS EC2 (Docker) | `TODO` http://IP_PUBLICA | `TODO` `v1.0-aws` |
 
 > Estado: Vercel + Clerk (`v0.4-auth`) y Docker (`v0.5-docker`) verificados; EC2 en curso. Las secciones con `TODO` se completan al cerrar cada hito.
@@ -157,12 +157,12 @@ docker rm -f testia                     # retirar
 ```
 
 - **Puerto:** `uvicorn` escucha en `0.0.0.0:8000` dentro del contenedor (en `127.0.0.1` no llegaría el tráfico del puerto publicado); en local se publica en `8080` y en EC2 en `80`.
-- **Etiqueta de la imagen:** el commit corto, para saber qué versión corre (`docker ps` muestra `testia:9405363`).
+- **Etiqueta de la imagen:** el commit corto, para saber qué versión corre (`docker ps` muestra `testia:2e6f869`).
 - **Prueba local:** contenedor `healthy`, SPA en http://localhost:8080, inicio de sesión con Clerk y test generado (`200`), `401` sin token, ningún secreto en `docker history`, proceso como usuario `app`.
 
 ```console
 $ docker ps --filter name=testia --format '{{.Names}} {{.Image}} {{.Status}} {{.Ports}}'
-testia testia:9405363 Up 6 minutes (healthy) 0.0.0.0:8080->8000/tcp
+testia testia:2e6f869 Up 6 minutes (healthy) 0.0.0.0:8080->8000/tcp
 $ docker logs testia | grep generar
 Petición rechazada por autenticación: SESSION_TOKEN_MISSING
 INFO:     172.17.0.1:45316 - "POST /api/generar HTTP/1.1" 401 Unauthorized
@@ -221,5 +221,5 @@ Evidencias en [`evidencias/`](evidencias/) (datos personales ocultos):
 | --- | --- |
 | [`vercel-clerk-login.png`](evidencias/vercel-clerk-login.png) | En https://testia.vercel.app, sin sesión el formulario no permite generar; el modal de Clerk muestra *Development mode* (instancia de desarrollo). |
 | [`vercel-clerk-sesion-test.png`](evidencias/vercel-clerk-sesion-test.png) | Con sesión iniciada aparecen *Cerrar sesión* y el menú de usuario, y el test se genera con respuesta real de la IA (en `vercel logs`: `POST /api/generar` → OpenRouter `200 OK`). |
-| Logs de `docker logs testia` (sección 8) | Contenedor único `testia:9405363` `healthy` en `localhost:8080`; con sesión, `POST /api/generar` → `200 OK`; sin token, `401`. |
+| Logs de `docker logs testia` (sección 8) | Contenedor único `testia:2e6f869` `healthy` en `localhost:8080`; con sesión, `POST /api/generar` → `200 OK`; sin token, `401`. |
 | `TODO` | EC2, Security Group, `vercel env ls`, rechazo sin token. |
