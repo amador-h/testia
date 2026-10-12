@@ -7,6 +7,8 @@ Práctica UD1 del módulo *Explotación de Servicios de Procesamiento y Analíti
 | Vercel (serverless) | https://testia.vercel.app | `v0.4-auth` (commit `2e6f869`; los commits posteriores solo cambian documentación) |
 | AWS EC2 (Docker) | http://54.235.82.94 | `v1.0-aws` (commit `55ccc4d`) |
 
+Presentación de la defensa: [`presentacion/Testia-Defensa_UD1.pdf`](presentacion/Testia-Defensa_UD1.pdf).
+
 > Estado: completo. Vercel + Clerk (`v0.4-auth`), Docker (`v0.5-docker`) y AWS EC2 (`v1.0-aws`) desplegados y verificados con sesión de Clerk y rechazo sin token.
 
 ## 1. Identificación
