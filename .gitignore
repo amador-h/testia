@@ -23,3 +23,5 @@ Thumbs.db
 .vscode/
 *.egg-info/
 
+# Enunciado del curso (no forma parte de la app)
+Practica_UD1_Explotacion_Despliegue_IA.md
