@@ -4,7 +4,7 @@ Práctica UD1 del módulo *Explotación de Servicios de Procesamiento y Analíti
 
 | Entorno | URL | Versión desplegada |
 | --- | --- | --- |
-| Vercel (serverless) | https://testia.vercel.app | `v0.4-auth` (+ ajuste de estilos `267daaa`) |
+| Vercel (serverless) | https://testia.vercel.app | `v0.4-auth` (+ ajuste de estilos `aa6af88`) |
 | AWS EC2 (Docker) | `TODO` http://IP_PUBLICA | `TODO` `v1.0-aws` |
 
 > Estado: Vercel + Clerk y Docker listos; EC2 en curso. Las secciones con `TODO` se completan al cerrar cada hito.
@@ -157,7 +157,7 @@ docker rm -f testia                     # retirar
 ```
 
 - **Puerto:** `uvicorn` escucha en `0.0.0.0:8000` dentro del contenedor (en `127.0.0.1` no llegaría el tráfico del puerto publicado); en local se publica en `8080` y en EC2 en `80`.
-- **Etiqueta de la imagen:** el commit corto, para saber qué versión corre (`docker ps` muestra `testia:267daaa`).
+- **Etiqueta de la imagen:** el commit corto, para saber qué versión corre (`docker ps` muestra `testia:aa6af88`).
 - **Prueba local:** contenedor `healthy`, SPA en http://localhost:8080, `401` sin token, ningún secreto en `docker history`, proceso como usuario `app`.
 
 ## 9. AWS
