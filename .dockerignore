@@ -19,6 +19,7 @@ frontend/dist/
 # Tests, documentación y evidencias: no hacen falta para ejecutar la app
 backend/tests/
 evidencias/
+presentacion/
 *.md
 Dockerfile
 .dockerignore
