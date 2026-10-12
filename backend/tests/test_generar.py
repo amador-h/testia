@@ -1,6 +1,9 @@
 from fastapi.testclient import TestClient
 
+import pytest
+
 from backend.app import ai_client
+from backend.app.auth import usuario_autenticado
 from backend.app.main import app, get_generador
 from backend.app.schemas import GenerarRequest, GenerarResponse, Pregunta
 
@@ -23,7 +26,11 @@ def _usar(generador):
     app.dependency_overrides[get_generador] = lambda: generador
 
 
-def teardown_function():
+@pytest.fixture(autouse=True)
+def sesion_simulada():
+    """Por defecto, usuario autenticado; el test de rechazo usa la validación real de Clerk."""
+    app.dependency_overrides[usuario_autenticado] = lambda: "user_test"
+    yield
     app.dependency_overrides.clear()
 
 
@@ -77,3 +84,16 @@ def test_json_invalido_del_modelo_es_error_controlado(monkeypatch):
     r = client.post("/api/generar", json=VALIDO)
     assert r.status_code == 502
 
+
+def test_sin_token_valido_se_rechaza_sin_llamar_a_la_ia(monkeypatch):
+    monkeypatch.setenv("CLERK_SECRET_KEY", "sk_test_ficticia")
+    del app.dependency_overrides[usuario_autenticado]  # validación real con el SDK de Clerk
+    llamadas = []
+    _usar(lambda req: llamadas.append(req))
+
+    sin_token = client.post("/api/generar", json=VALIDO)
+    token_falso = client.post("/api/generar", json=VALIDO, headers={"Authorization": "Bearer no-es-un-jwt"})
+
+    assert sin_token.status_code == 401 and token_falso.status_code == 401
+    assert sin_token.headers["www-authenticate"] == "Bearer"
+    assert llamadas == []

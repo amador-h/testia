@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import ai_client
+from .auth import usuario_autenticado
 from .schemas import GenerarRequest, GenerarResponse
 
 load_dotenv()
@@ -48,6 +49,7 @@ def health() -> dict[str, str]:
 @app.post("/api/generar", response_model=GenerarResponse)
 def generar(
     req: GenerarRequest,
+    _usuario: str = Depends(usuario_autenticado),
     generador: Callable[[GenerarRequest], GenerarResponse] = Depends(get_generador),
 ) -> GenerarResponse:
     return generador(req)

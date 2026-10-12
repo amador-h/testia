@@ -9,6 +9,7 @@ dependencies = [
     "openai>=1.50",
     "pydantic>=2.7",
     "python-dotenv>=1.0",
+    "clerk-backend-api>=3.0",
 ]
 
 [project.optional-dependencies]
