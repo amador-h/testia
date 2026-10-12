@@ -5,9 +5,9 @@ Práctica UD1 del módulo *Explotación de Servicios de Procesamiento y Analíti
 | Entorno | URL | Versión desplegada |
 | --- | --- | --- |
 | Vercel (serverless) | https://testia.vercel.app | `v0.4-auth` (commit `2e6f869`) |
-| AWS EC2 (Docker) | `TODO` http://IP_PUBLICA | `TODO` `v1.0-aws` |
+| AWS EC2 (Docker) | http://54.235.82.94 | `v1.0-aws` |
 
-> Estado: Vercel + Clerk (`v0.4-auth`) y Docker (`v0.5-docker`) verificados; EC2 en curso. Las secciones con `TODO` se completan al cerrar cada hito.
+> Estado: Vercel + Clerk (`v0.4-auth`), Docker (`v0.5-docker`) y AWS EC2 (`v1.0-aws`) desplegados. Las secciones con `TODO` se completan al cerrar cada hito.
 
 ## 1. Identificación
 
@@ -83,7 +83,7 @@ Valores de `CLERK_AUTHORIZED_PARTIES` por entorno:
 | Local | `http://localhost:5173,http://localhost:8080` |
 | Vercel Production | `https://testia.vercel.app,https://expl-p1.vercel.app,https://test-repaso-ia.vercel.app` |
 | Vercel Preview | `https://testia-*-ies-zaidin-vergeles.vercel.app` (cada Preview tiene una URL distinta) |
-| EC2 | `http://IP_PUBLICA` |
+| EC2 | `http://54.235.82.94` |
 
 ## 6. Vercel
 
@@ -171,7 +171,77 @@ INFO:     172.17.0.1:51944 - "POST /api/generar HTTP/1.1" 200 OK
 
 ## 9. AWS
 
-`TODO` (Fase 6): EC2 (región, SO, tipo), Docker, ejecución, Security Group, URL y versión desplegada. Limitación a documentar: en EC2 la aplicación va por **HTTP sin cifrar** (el token de sesión viaja en claro), por lo que solo debe usarse con datos y cuentas de prueba.
+**Cuenta:** AWS Academy *Learner Lab* (región `us-east-1`; credenciales temporales de la sesión del lab en `~/.aws/credentials`, nunca en el repositorio). Todo se creó con la **AWS CLI 2.37** desde PowerShell, para que los pasos sean reproducibles.
+
+| Recurso | Valor | Motivo |
+| --- | --- | --- |
+| Instancia | `i-0b4ff0c5a687e115d` · `testia` · `us-east-1b` | — |
+| Sistema | Amazon Linux 2023 (AMI oficial más reciente, leída de SSM) · x86_64 | Linux mantenido por AWS, con `dnf` y Docker en sus repositorios |
+| Tipo | `t3.micro` (2 vCPU, 1 GiB) + **2 GiB de swap** | Suficiente para un contenedor; el swap evita quedarse sin memoria al compilar la SPA |
+| Disco | gp3 de 16 GiB | Imágenes de Node y Python durante la construcción |
+| IP | **IP elástica `54.235.82.94`** | El lab detiene la instancia al acabar la sesión; sin IP fija cambiarían la URL y `CLERK_AUTHORIZED_PARTIES` |
+| Metadatos | IMDSv2 obligatorio | Buena práctica de seguridad |
+| Clave SSH | `testia-ec2` (ED25519), privada solo en el PC del administrador (`~/.ssh/`, permisos solo para su usuario) | No se usa la clave compartida del lab |
+
+**Security Group `testia-sg`** (reglas de entrada; la salida se deja por defecto para instalar paquetes y llamar a OpenRouter y Clerk):
+
+| Protocolo | Puerto | Origen | Para qué |
+| --- | --- | --- | --- |
+| TCP | 22 | `IP_DEL_ADMINISTRADOR/32` | SSH solo desde el equipo del administrador |
+| TCP | 80 | `0.0.0.0/0` | Web pública para la demo y la evaluación |
+
+No se abren el 8000 (puerto interno del contenedor) ni el 2375/2376 (API de Docker): comprobado con `Test-NetConnection 54.235.82.94 -Port 8000` y `-Port 2375` → `False`.
+
+**Creación de la infraestructura** (comandos usados, resumidos):
+
+```powershell
+$miIp = (curl.exe -s https://checkip.amazonaws.com).Trim()
+aws ec2 create-key-pair --key-name testia-ec2 --key-type ed25519 --query KeyMaterial --output text > ~/.ssh/testia-ec2.pem
+icacls ~/.ssh/testia-ec2.pem /inheritance:r /grant:r "$($env:USERNAME):(R)"
+aws ec2 create-security-group --group-name testia-sg --vpc-id <vpc-por-defecto> --description "..."
+aws ec2 authorize-security-group-ingress --group-id <sg> --ip-permissions `
+  "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=$miIp/32}]" `
+  "IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0}]"
+$ami = aws ssm get-parameter --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64 --query Parameter.Value --output text
+aws ec2 run-instances --image-id $ami --instance-type t3.micro --key-name testia-ec2 --security-group-ids <sg> `
+  --block-device-mappings "DeviceName=/dev/xvda,Ebs={VolumeSize=16,VolumeType=gp3}" --metadata-options "HttpTokens=required" `
+  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=testia}]"
+aws ec2 allocate-address --domain vpc
+aws ec2 associate-address --instance-id <id> --allocation-id <eipalloc>
+```
+
+**Preparación de la instancia** (`ssh -i ~/.ssh/testia-ec2.pem ec2-user@54.235.82.94`):
+
+```bash
+sudo dd if=/dev/zero of=/swapfile bs=1M count=2048 && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
+sudo dnf install -y docker git
+sudo systemctl enable --now docker          # arranca con el sistema
+sudo usermod -aG docker ec2-user
+docker --version                            # Docker version 25.0.14
+sudo docker run --rm hello-world            # comprobación (imagen borrada después)
+```
+
+**Código y versión:** la imagen se construye en la instancia a partir del repositorio público, en el tag que se despliega, y se etiqueta con su commit:
+
+```bash
+sudo mkdir -p /opt/testia && sudo chown ec2-user: /opt/testia && cd /opt/testia
+git clone https://github.com/amador-h/testia.git app && cd app
+git checkout v1.0-aws
+docker build --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_test_... -t testia:$(git rev-parse --short HEAD) .
+```
+
+**Variables en EC2:** archivo privado `/opt/testia/testia.env` (fuera del repositorio clonado, `chmod 600`, dueño `ec2-user`) con `OPENROUTER_*`, `CLERK_SECRET_KEY` y `CLERK_AUTHORIZED_PARTIES=http://54.235.82.94`. Se creó enviando el contenido por la entrada estándar de SSH (`... | ssh ec2-user@IP "umask 077; cat > /opt/testia/testia.env"`), así que los valores no aparecen en ningún comando ni en el historial. La clave pública de Clerk no va en este archivo: entra en el bundle con `--build-arg`.
+
+**Ejecución (un único contenedor):**
+
+```bash
+docker run -d --name testia --env-file /opt/testia/testia.env -p 80:8000 --restart unless-stopped testia:<commit>
+```
+
+`--restart unless-stopped`: el contenedor vuelve a arrancar si se cae o si se reinicia la instancia (comprobado con `sudo systemctl reboot`), salvo que se haya parado a mano.
+
+**Limitación: HTTP sin cifrar.** En EC2 no hay HTTPS (simplificación permitida por el enunciado), así que el token de sesión de Clerk y los apuntes viajan en claro y podrían leerse en una red no confiable. Solo se usan cuentas y textos de prueba. Clerk funciona en este origen con su instancia de desarrollo (comprobado: `window.Clerk.loaded = true` aunque `isSecureContext = false`). En un entorno real se usaría un dominio con certificado TLS.
 
 ## 10. Operación y verificación
 
@@ -188,7 +258,55 @@ INFO:     172.17.0.1:51944 - "POST /api/generar HTTP/1.1" 200 OK
 
 Resultado: `6 passed`.
 
-`TODO`: comprobaciones manuales en ambos entornos, estado/logs en EC2, actualización y reinicio, retirada de recursos al terminar.
+**Comprobaciones manuales:**
+
+| Comprobación | Vercel | EC2 |
+| --- | --- | --- |
+| SPA carga | `200` | `200` |
+| `GET /api/health` | `{"status":"ok"}` | `{"status":"ok"}` (desde fuera de AWS) |
+| `POST /api/generar` sin token | `401` + `WWW-Authenticate: Bearer` | `401` + `WWW-Authenticate: Bearer` |
+| Con token inventado | `401` (`TOKEN_INVALID`) | `401` (`TOKEN_INVALID`) |
+| Inicio de sesión + test generado | `200`, OpenRouter `200 OK` | `TODO` |
+| Puertos no publicados (8000, 2375) | — | Cerrados |
+
+**Estado y logs en EC2:**
+
+```bash
+docker ps                                   # testia  testia:<commit>  Up … (healthy)  0.0.0.0:80->8000/tcp
+docker logs --tail 50 testia                # accesos y rechazos (solo el motivo, nunca tokens ni apuntes)
+docker inspect testia --format '{{.HostConfig.RestartPolicy.Name}} {{.Config.User}}'   # unless-stopped app
+systemctl is-active docker
+```
+
+**Reinicio** (comprobado): `docker restart testia` → `Up … (healthy)`; `sudo systemctl reboot` → tras el arranque el contenedor vuelve solo y `/api/health` responde.
+
+**Actualizar a una nueva versión** (sin tocar las variables):
+
+```bash
+cd /opt/testia/app
+git fetch --tags && git checkout <nuevo-tag>
+docker build --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_test_... -t testia:$(git rev-parse --short HEAD) .
+docker rm -f testia
+docker run -d --name testia --env-file /opt/testia/testia.env -p 80:8000 --restart unless-stopped testia:$(git rev-parse --short HEAD)
+docker image prune -f                       # borra imágenes sin usar
+```
+
+Hasta el `prune` la imagen anterior se conserva con su etiqueta, así que volver atrás es arrancar el contenedor con la etiqueta antigua. En Vercel, una actualización es `vercel deploy` (Preview), comprobar, y `vercel deploy --prod`.
+
+**Disponibilidad para la defensa y retirada de recursos:**
+
+- El Learner Lab detiene la instancia al acabar cada sesión (4 h). Antes de la defensa: *Start Lab* y, si la instancia no arranca sola, `aws ec2 start-instances --instance-ids i-0b4ff0c5a687e115d`. La IP elástica mantiene la URL y el contenedor arranca solo por la política de reinicio.
+- Si cambia la IP pública del administrador, se actualiza la regla SSH del Security Group (`revoke-security-group-ingress` + `authorize-security-group-ingress`).
+- Al terminar la evaluación:
+
+```powershell
+aws ec2 terminate-instances --instance-ids i-0b4ff0c5a687e115d       # borra también el disco (DeleteOnTermination)
+aws ec2 release-address --allocation-id eipalloc-057eaa907dd75341e   # una IP elástica sin usar sigue costando
+aws ec2 delete-security-group --group-name testia-sg
+aws ec2 delete-key-pair --key-name testia-ec2                         # y borrar ~/.ssh/testia-ec2.pem
+```
+
+En Vercel, el proyecto se puede conservar (plan gratuito) o borrar con `vercel project rm testia`; en Clerk, se borra la aplicación de desarrollo.
 
 ## 11. Problemas y soluciones
 
@@ -196,7 +314,7 @@ Resultado: `6 passed`.
 2. **`403 Forbidden` de OpenRouter solo en Vercel.** *Síntoma:* 502 controlado en `/api/generar` desplegado. *Diagnóstico:* `vercel logs` mostró `POST https://openrouter.ai/... 403`; la clave no tiene saldo y el modelo configurado era de pago. *Solución:* usar solo modelos `:free` (con lista de respaldo, porque a veces responden `429`). *Comprobación:* `200 OK` desde el despliegue de Preview.
 3. **`.gitignore` modificado por la CLI.** `vercel link` añadió `.env*`, que anulaba `!.env.example`; se eliminó esa línea porque `.vercel/` y `.env.*` ya estaban cubiertos.
 4. **PowerShell bloquea `npm`/`vercel`** (`running scripts is disabled`): se usaron `npm.cmd` y `vercel.cmd`, sin cambiar la política de ejecución. Además, para ejecutar una ruta entre comillas hace falta el operador `&`.
-5. **El `.env` se subió a Vercel con el código.** *Síntoma:* al comparar el código desplegado con el local (`vercel api /v6/deployments/<id>/files`, hash SHA-1 de cada archivo), el árbol contenía `.env`, `.pytest_cache`, `egg-info` y un `dist` antiguo. *Diagnóstico:* sin repositorio Git la CLI no aplica el `.gitignore`. *Solución:* añadir `.vercelignore` (excluye `.env*`, cachés, `frontend/dist`) y redesplegar; el nuevo despliegue tiene solo archivos fuente, sin secretos. *Pendiente:* los despliegues antiguos aún contienen el `.env`; se recomienda rotar la clave de OpenRouter y retirar esos despliegues.
+5. **El `.env` se subió a Vercel con el código.** *Síntoma:* al comparar el código desplegado con el local (`vercel api /v6/deployments/<id>/files`, hash SHA-1 de cada archivo), el árbol contenía `.env`, `.pytest_cache`, `egg-info` y un `dist` antiguo. *Diagnóstico:* sin repositorio Git la CLI no aplica el `.gitignore`. *Solución:* añadir `.vercelignore` (excluye `.env*`, cachés, `frontend/dist`) y redesplegar; el nuevo despliegue tiene solo archivos fuente, sin secretos. *Comprobación posterior:* revisados con `vercel api /v6/deployments/<id>/files` los 5 despliegues que quedan en el proyecto; ninguno contiene `.env`. Como la clave de OpenRouter llegó a subirse (a un almacenamiento privado de Vercel, no público), se recomienda rotarla.
 6. **Despliegue pausado y protegido.** *Síntoma:* `https://testia.vercel.app` devolvía `503 DEPLOYMENT_PAUSED` y, tras reactivarlo, `302` a la página de login de Vercel. *Solución:* reanudar el proyecto en el dashboard y cambiar *Deployment Protection* a *Standard Protection* (solo protege Preview). *Comprobación:* `GET /api/health` → `200` sin sesión de Vercel.
 7. **`pip install -e .` fallaba** (`Multiple top-level packages discovered: ['backend', 'frontend']`). *Solución:* `[tool.setuptools.packages.find] include = ["backend*"]` en `pyproject.toml`. *Comprobación:* instalación y `pytest` correctos en un entorno nuevo.
 8. **Las Preview de Vercel no tienen una URL fija para `azp`.** *Síntoma:* una lista exacta de orígenes rechazaría a usuarios autenticados en cada Preview nueva. *Solución:* admitir `*` en `CLERK_AUTHORIZED_PARTIES`, limitado a `[a-z0-9-]+` (no puede colar otro dominio), con test. *Comprobación:* `test_origenes_permitidos_admiten_comodin_de_preview`.
@@ -213,7 +331,7 @@ Resultado: `6 passed`.
 | `v0.3-vercel` | Primer despliegue serverless | https://testia.vercel.app |
 | `v0.4-auth` | Clerk en SPA y backend, redespliegue | https://testia.vercel.app |
 | `v0.5-docker` | Imagen única probada en local | http://localhost:8080 |
-| `v1.0-aws` | `TODO` Despliegue en EC2 | `TODO` |
+| `v1.0-aws` | Despliegue en EC2 con Docker | http://54.235.82.94 |
 
 Evidencias en [`evidencias/`](evidencias/) (datos personales ocultos):
 
