@@ -1,0 +1,18 @@
+# Lo que NO debe subirse a Vercel (la CLI no respeta .gitignore sin repositorio Git)
+
+# Secretos y configuración local: en Vercel van como variables de entorno
+.env
+.env.*
+*.pem
+*.key
+
+# Cachés, entornos y artefactos locales (Vercel compila el frontend por su cuenta)
+.venv/
+.pytest_cache/
+__pycache__/
+*.egg-info/
+node_modules/
+frontend/dist/
+
+# Documentación del curso, no necesaria para ejecutar la app
+Practica_UD1_Explotacion_Despliegue_IA.md
