@@ -7,7 +7,7 @@ Práctica UD1 del módulo *Explotación de Servicios de Procesamiento y Analíti
 | Vercel (serverless) | https://testia.vercel.app | `v0.4-auth` (+ ajuste de estilos `aa6af88`) |
 | AWS EC2 (Docker) | `TODO` http://IP_PUBLICA | `TODO` `v1.0-aws` |
 
-> Estado: Vercel + Clerk y Docker listos; EC2 en curso. Las secciones con `TODO` se completan al cerrar cada hito.
+> Estado: Vercel + Clerk (`v0.4-auth`) y Docker (`v0.5-docker`) verificados; EC2 en curso. Las secciones con `TODO` se completan al cerrar cada hito.
 
 ## 1. Identificación
 
@@ -158,7 +158,16 @@ docker rm -f testia                     # retirar
 
 - **Puerto:** `uvicorn` escucha en `0.0.0.0:8000` dentro del contenedor (en `127.0.0.1` no llegaría el tráfico del puerto publicado); en local se publica en `8080` y en EC2 en `80`.
 - **Etiqueta de la imagen:** el commit corto, para saber qué versión corre (`docker ps` muestra `testia:aa6af88`).
-- **Prueba local:** contenedor `healthy`, SPA en http://localhost:8080, `401` sin token, ningún secreto en `docker history`, proceso como usuario `app`.
+- **Prueba local:** contenedor `healthy`, SPA en http://localhost:8080, inicio de sesión con Clerk y test generado (`200`), `401` sin token, ningún secreto en `docker history`, proceso como usuario `app`.
+
+```console
+$ docker ps --filter name=testia --format '{{.Names}} {{.Image}} {{.Status}} {{.Ports}}'
+testia testia:aa6af88 Up 6 minutes (healthy) 0.0.0.0:8080->8000/tcp
+$ docker logs testia | grep generar
+Petición rechazada por autenticación: SESSION_TOKEN_MISSING
+INFO:     172.17.0.1:45316 - "POST /api/generar HTTP/1.1" 401 Unauthorized
+INFO:     172.17.0.1:51944 - "POST /api/generar HTTP/1.1" 200 OK
+```
 
 ## 9. AWS
 
@@ -193,6 +202,8 @@ Resultado: `6 passed`.
 8. **Las Preview de Vercel no tienen una URL fija para `azp`.** *Síntoma:* una lista exacta de orígenes rechazaría a usuarios autenticados en cada Preview nueva. *Solución:* admitir `*` en `CLERK_AUTHORIZED_PARTIES`, limitado a `[a-z0-9-]+` (no puede colar otro dominio), con test. *Comprobación:* `test_origenes_permitidos_admiten_comodin_de_preview`.
 9. **El repositorio Git se creó tarde.** Las fases 1–3 se hicieron sin Git. Al integrar Clerk se creó el repositorio y se **reconstruyó el historial por fases** con los ficheros reales de cada fase (backend → frontend → configuración de Vercel), para que cada tag apunte a un commit distinto. Las fechas de esos commits son las de la reconstrucción, no las del trabajo original.
 
+10. **`401 TOKEN_NOT_ACTIVE_YET` solo en Docker local.** *Síntoma:* con sesión iniciada en http://localhost:8080, los primeros envíos devolvían `401`; en Vercel funcionaba. *Diagnóstico:* `docker logs testia` mostraba `Petición rechazada por autenticación: TOKEN_NOT_ACTIVE_YET`; comparando `date -u` del host y del contenedor con la cabecera `Date` de un servidor externo, el reloj de Windows (y el del contenedor, que lo hereda) iba ~34 s atrasado, así que el `nbf` de los tokens de Clerk (vida de 60 s) quedaba "en el futuro" más allá del margen de 5 s del SDK. *Solución:* sincronizar la hora de Windows (*Configuración → Hora e idioma → Sincronizar ahora*); no se amplía el margen de validación para no relajar la seguridad. En EC2 el reloj se sincroniza con NTP (`chrony`). *Comprobación:* `POST /api/generar` → `200 OK` en los logs del contenedor.
+
 ## 12. Git y evidencias
 
 | Tag | Hito | Despliegue |
@@ -210,4 +221,5 @@ Evidencias en [`evidencias/`](evidencias/) (datos personales ocultos):
 | --- | --- |
 | [`vercel-clerk-login.png`](evidencias/vercel-clerk-login.png) | En https://testia.vercel.app, sin sesión el formulario no permite generar; el modal de Clerk muestra *Development mode* (instancia de desarrollo). |
 | [`vercel-clerk-sesion-test.png`](evidencias/vercel-clerk-sesion-test.png) | Con sesión iniciada aparecen *Cerrar sesión* y el menú de usuario, y el test se genera con respuesta real de la IA (en `vercel logs`: `POST /api/generar` → OpenRouter `200 OK`). |
-| `TODO` | Docker local, EC2, Security Group, `vercel env ls`, rechazo sin token. |
+| Logs de `docker logs testia` (sección 8) | Contenedor único `testia:aa6af88` `healthy` en `localhost:8080`; con sesión, `POST /api/generar` → `200 OK`; sin token, `401`. |
+| `TODO` | EC2, Security Group, `vercel env ls`, rechazo sin token. |
