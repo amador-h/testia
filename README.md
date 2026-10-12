@@ -4,8 +4,8 @@ Práctica UD1 del módulo *Explotación de Servicios de Procesamiento y Analíti
 
 | Entorno | URL | Versión desplegada |
 | --- | --- | --- |
-| Vercel (serverless) | https://testia.vercel.app | `v0.4-auth` (commit `2e6f869`) |
-| AWS EC2 (Docker) | http://54.235.82.94 | `v1.0-aws` |
+| Vercel (serverless) | https://testia.vercel.app | `v0.4-auth` (commit `2e6f869`; los commits posteriores solo cambian documentación) |
+| AWS EC2 (Docker) | http://54.235.82.94 | `v1.0-aws` (commit `55ccc4d`) |
 
 > Estado: completo. Vercel + Clerk (`v0.4-auth`), Docker (`v0.5-docker`) y AWS EC2 (`v1.0-aws`) desplegados y verificados con sesión de Clerk y rechazo sin token.
 
@@ -131,7 +131,10 @@ Variables del proyecto (`vercel env ls`; los secretos no se pueden leer, la clav
 
 ## 7. Clerk
 
-- **Instancia:** de **desarrollo** (claves `pk_test_` / `sk_test_`), como indica el enunciado. La etiqueta *Production* de Vercel no la convierte en producción. Usuario de prueba creado en *Users*; no se usan cuentas personales.
+- **Instancia:** aplicación `IZV` en entorno de **desarrollo** (claves `pk_test_` / `sk_test_`, aviso *Development mode* en el modal), como indica el enunciado. La etiqueta *Production* de Vercel no la convierte en producción.
+- **Configuración** (*Configure → User & authentication*): registro e inicio de sesión con **correo electrónico + código de verificación** (sin enlace mágico) y botón *Continuar con Google*. No se ha creado ninguna base de datos propia: las identidades las gestiona Clerk.
+- **Cuentas:** las pruebas se hicieron con la cuenta del centro del alumno (sus datos se ocultan en las capturas). Para la demo se usa un usuario de prueba creado en *Users*, sin datos personales.
+- **Comprobación en Clerk:** *Logs → Application* registra `sign_in.created`, `sign_in.email_address.verified`, `sign_in.completed` y `session.created` para cada inicio de sesión.
 - **SPA** (`@clerk/react`): `ClerkProvider` con la clave pública y textos en español; en la cabecera, *Iniciar sesión* (modal de Clerk) o *Cerrar sesión* + `UserButton`. Sin sesión, el botón del formulario abre el inicio de sesión. Al enviar, `getToken()` obtiene el token y se manda como `Authorization: Bearer`.
 - **Backend** ([`backend/app/auth.py`](backend/app/auth.py)): dependencia `usuario_autenticado` en `POST /api/generar` con el SDK oficial `clerk-backend-api` (`authenticate_request`): descarga la JWKS con `CLERK_SECRET_KEY`, comprueba **firma**, **caducidad** (`exp`/`nbf`), que el token sea de sesión y que el **`azp`** esté en `CLERK_AUTHORIZED_PARTIES`. Si falla → `401` con `WWW-Authenticate: Bearer` y la IA no se llama. En los logs solo se registra el motivo (`SESSION_TOKEN_MISSING`, `TOKEN_INVALID`, `AZP_NO_PERMITIDO`…), nunca el token. `/api/health` sigue siendo público y no revela nada.
 - **Orígenes:** no se usa CORS (SPA y API comparten origen en ambos entornos). Los orígenes válidos se controlan con `azp`.
@@ -368,9 +371,9 @@ En Vercel, el proyecto se puede conservar (plan gratuito) o borrar con `vercel p
 6. **Despliegue pausado y protegido.** *Síntoma:* `https://testia.vercel.app` devolvía `503 DEPLOYMENT_PAUSED` y, tras reactivarlo, `302` a la página de login de Vercel. *Solución:* reanudar el proyecto en el dashboard y cambiar *Deployment Protection* a *Standard Protection* (solo protege Preview). *Comprobación:* `GET /api/health` → `200` sin sesión de Vercel.
 7. **`pip install -e .` fallaba** (`Multiple top-level packages discovered: ['backend', 'frontend']`). *Solución:* `[tool.setuptools.packages.find] include = ["backend*"]` en `pyproject.toml`. *Comprobación:* instalación y `pytest` correctos en un entorno nuevo.
 8. **Las Preview de Vercel no tienen una URL fija para `azp`.** *Síntoma:* una lista exacta de orígenes rechazaría a usuarios autenticados en cada Preview nueva. *Solución:* admitir `*` en `CLERK_AUTHORIZED_PARTIES`, limitado a `[a-z0-9-]+` (no puede colar otro dominio), con test. *Comprobación:* `test_origenes_permitidos_admiten_comodin_de_preview`.
-9. **El repositorio Git se creó tarde.** Las fases 1–3 se hicieron sin Git. Al integrar Clerk se creó el repositorio y se **reconstruyó el historial por fases** con los ficheros reales de cada fase (backend → frontend → configuración de Vercel), para que cada tag apunte a un commit distinto. Las fechas de esos commits son las de la reconstrucción, no las del trabajo original.
-
+9. **El repositorio Git se creó tarde.** Las fases 1–3 se hicieron sin Git. Al integrar Clerk se creó el repositorio y se **reconstruyó el historial por fases** con los ficheros reales de cada fase (backend → frontend → configuración de Vercel), para que cada tag apunte a un commit distinto. Las fechas de esos commits son las de la reconstrucción, no las del trabajo original. Antes de publicar el repositorio se reescribieron también la autoría (cuenta de GitHub `amador-h`, correo *noreply*) y los valores de ejemplo de `.env.example` (incidencia 11); el contenido de cada fase no cambió.
 10. **`401 TOKEN_NOT_ACTIVE_YET` solo en Docker local.** *Síntoma:* con sesión iniciada en http://localhost:8080, los primeros envíos devolvían `401`; en Vercel funcionaba. *Diagnóstico:* `docker logs testia` mostraba `Petición rechazada por autenticación: TOKEN_NOT_ACTIVE_YET`; comparando `date -u` del host y del contenedor con la cabecera `Date` de un servidor externo, el reloj de Windows (y el del contenedor, que lo hereda) iba ~34 s atrasado, así que el `nbf` de los tokens de Clerk (vida de 60 s) quedaba "en el futuro" más allá del margen de 5 s del SDK. *Solución:* sincronizar la hora de Windows (*Configuración → Hora e idioma → Sincronizar ahora*); no se amplía el margen de validación para no relajar la seguridad. En EC2 el reloj se sincroniza con NTP (`chrony`). *Comprobación:* `POST /api/generar` → `200 OK` en los logs del contenedor.
+11. **GitHub rechazó el primer `git push`** (`GH013: Repository rule violations — Push cannot contain secrets — Stripe Test API Secret Key`, en `.env.example:14`). *Diagnóstico:* falso positivo de *Push Protection*: el valor ficticio (`sk_test_` seguido de 24 letras `x`) tiene el formato de una clave de Stripe. Se comprobó con `git grep` en todo el historial que no había ninguna clave real. *Solución:* no se pidió a GitHub que lo ignorara; se cambiaron los ejemplos por `sk_test_PON_AQUI_TU_CLAVE` (y equivalentes) en todo el historial, antes de que el repositorio tuviera contenido público. *Comprobación:* `git push` de `main` y de los tags aceptado.
 
 ## 12. Git y evidencias
 
@@ -383,7 +386,7 @@ En Vercel, el proyecto se puede conservar (plan gratuito) o borrar con `vercel p
 | `v0.5-docker` | Imagen única probada en local | http://localhost:8080 |
 | `v1.0-aws` | Despliegue en EC2 con Docker | http://54.235.82.94 |
 
-Evidencias en [`evidencias/`](evidencias/) (nombre, correo, cuenta e IP del administrador ocultos):
+Evidencias en [`evidencias/`](evidencias/) (nombre, correo, ID de cuenta e IP del administrador ocultos):
 
 | Captura | Qué demuestra |
 | --- | --- |
@@ -391,7 +394,11 @@ Evidencias en [`evidencias/`](evidencias/) (nombre, correo, cuenta e IP del admi
 | [`vercel-clerk-login.png`](evidencias/vercel-clerk-login.png) | En https://testia.vercel.app, sin sesión el formulario no permite generar; el modal de Clerk muestra *Development mode* (instancia de desarrollo). |
 | [`vercel-clerk-sesion-test.png`](evidencias/vercel-clerk-sesion-test.png) | Con sesión iniciada aparecen *Cerrar sesión* y el menú de usuario, y el test se genera con respuesta real de la IA (en `vercel logs`: `POST /api/generar` → OpenRouter `200 OK`). |
 | [`docker-app.png`](evidencias/docker-app.png) | Docker local: `docker ps` muestra un único contenedor `testia` `healthy` (`0.0.0.0:8080->8000`) y la app en `localhost:8080` con sesión y test generado. |
-| [`aws-ec2-pannel.png`](evidencias/aws-ec2-pannel.png) | Consola de EC2 en `us-east-1`: 1 instancia en ejecución, 1 IP elástica, coste `$0.00`. El detalle de la instancia (ID, tipo, estado, AMI) y las reglas del Security Group están en texto en la sección 9. |
+| [`vercel-env-vars.png`](evidencias/vercel-env-vars.png) | *Settings → Environment Variables* del proyecto: nombres y entornos (Production / Preview) de las 6 variables; los secretos no muestran su valor (candado) y solo la clave pública de Clerk es de tipo visible. |
+| [`clerk-config.png`](evidencias/clerk-config.png) | Clerk, instancia *Development*: registro e inicio de sesión con correo y código de verificación. Sin claves visibles. |
+| [`clerk-logs.png`](evidencias/clerk-logs.png) | Clerk *Logs*: inicios de sesión completados (`sign_in.completed`, `session.created`) de las pruebas. |
+| [`aws-ec2-pannel.png`](evidencias/aws-ec2-pannel.png) | Consola de EC2 en `us-east-1`: 1 instancia en ejecución, 1 IP elástica, 1 volumen, coste `$0.00`. El detalle de la instancia (ID, tipo, estado, AMI) está en texto en la sección 9. |
+| [`aws-ec2-security-groups.png`](evidencias/aws-ec2-security-groups.png) | Reglas de entrada de `testia-sg`: SSH (TCP 22) solo desde la IP del administrador (`/32`, oculta) y HTTP (TCP 80) desde `0.0.0.0/0`; ningún otro puerto. |
 | [`aws-clerk-login.png`](evidencias/aws-clerk-login.png) | En http://54.235.82.94 (el navegador avisa de *No seguro*: HTTP), Clerk funciona y sin sesión no se puede generar. |
 | [`aws-clerk-session-test.png`](evidencias/aws-clerk-session-test.png) | En EC2, con sesión iniciada, test generado con respuesta real de la IA (en `docker logs`: `POST /api/generar` → `200 OK`). |
 | Salidas de consola (secciones 6–10) | `vercel env ls` sin valores, rechazo `401` sin token en Vercel y EC2, `docker ps`/`docker logs` en local y en EC2, instancia y Security Group con la AWS CLI. |
