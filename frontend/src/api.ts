@@ -17,12 +17,14 @@ export interface Pregunta {
 
 export const MAX_APUNTES = 4000
 
-export async function generarTest(req: GenerarRequest): Promise<Pregunta[]> {
+/** `token`: token de sesión de Clerk; FastAPI lo valida antes de llamar a la IA. */
+export async function generarTest(req: GenerarRequest, token: string | null): Promise<Pregunta[]> {
+  if (!token) throw new Error('Debes iniciar sesión para generar un test.')
   let res: Response
   try {
     res = await fetch('/api/generar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(req),
     })
   } catch {

@@ -1,3 +1,4 @@
+import { Show, SignInButton, SignOutButton, UserButton, useAuth } from '@clerk/react'
 import { useRef, useState, type FormEvent } from 'react'
 import { MAX_APUNTES, generarTest, type Dificultad, type Pregunta } from './api'
 import { IconMinus, IconPlus, IconSpark } from './icons'
@@ -20,11 +21,20 @@ const entrada =
   'placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/15 ' +
   'dark:border-slate-800 dark:bg-slate-900 dark:placeholder:text-slate-600'
 
+const botonPrincipal =
+  'inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-[15px] font-semibold text-white ' +
+  'shadow-sm shadow-indigo-600/30 transition hover:bg-indigo-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70'
+
+const botonSecundario =
+  'rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 ' +
+  'dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
+
 const botonPaso =
   'flex size-10 items-center justify-center text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 ' +
   'disabled:opacity-40 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
 
 export default function App() {
+  const { getToken } = useAuth()
   const [apuntes, setApuntes] = useState('')
   const [numPreguntas, setNumPreguntas] = useState(5)
   const [dificultad, setDificultad] = useState<Dificultad>('media')
@@ -51,7 +61,10 @@ export default function App() {
     setRespondidas(0)
     try {
       setPreguntas(
-        await generarTest({ apuntes: apuntes.trim(), num_preguntas: numPreguntas, dificultad, idioma: 'es' }),
+        await generarTest(
+          { apuntes: apuntes.trim(), num_preguntas: numPreguntas, dificultad, idioma: 'es' },
+          await getToken(),
+        ),
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error inesperado.')
@@ -85,6 +98,23 @@ export default function App() {
           <IconSpark className="size-5" />
         </span>
         <span className="text-[15px] font-semibold tracking-tight">Testia</span>
+        <div className="ml-auto flex items-center gap-2">
+          <Show when="signed-out">
+            <SignInButton mode="modal">
+              <button type="button" className={botonSecundario}>
+                Iniciar sesión
+              </button>
+            </SignInButton>
+          </Show>
+          <Show when="signed-in">
+            <SignOutButton>
+              <button type="button" className={botonSecundario}>
+                Cerrar sesión
+              </button>
+            </SignOutButton>
+            <UserButton />
+          </Show>
+        </div>
       </header>
 
       <div className="mt-6 mb-12 max-w-2xl sm:mt-10 lg:mt-0 lg:mb-4 lg:max-w-none">
@@ -183,21 +213,27 @@ export default function App() {
             </fieldset>
           </div>
 
-          <button
-            type="submit"
-            disabled={cargando}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-[15px] font-semibold text-white shadow-sm shadow-indigo-600/30 transition hover:bg-indigo-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {cargando ? (
-              <span
-                className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                aria-hidden="true"
-              />
-            ) : (
-              <IconSpark className="size-4" />
-            )}
-            {cargando ? 'Generando…' : 'Generar test'}
-          </button>
+          {/* Solo es comodidad de interfaz: quien protege la IA es FastAPI validando el token. */}
+          <Show when="signed-out">
+            <SignInButton mode="modal">
+              <button type="button" className={botonPrincipal}>
+                Inicia sesión para generar
+              </button>
+            </SignInButton>
+          </Show>
+          <Show when="signed-in">
+            <button type="submit" disabled={cargando} className={botonPrincipal}>
+              {cargando ? (
+                <span
+                  className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                  aria-hidden="true"
+                />
+              ) : (
+                <IconSpark className="size-4" />
+              )}
+              {cargando ? 'Generando…' : 'Generar test'}
+            </button>
+          </Show>
 
           {error && (
             <p
