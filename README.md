@@ -7,7 +7,7 @@ Práctica UD1 del módulo *Explotación de Servicios de Procesamiento y Analíti
 | Vercel (serverless) | https://testia.vercel.app | `v1.1-vercel` (revisión de noviembre; despliegue `dpl_8zokEQi8BtiQoH2GQZRAHHafYkmz`) |
 | AWS EC2 (Docker) | http://54.235.82.94 | `v1.0-aws` (commit `55ccc4d`); pendiente de actualizar a `v1.1-vercel` |
 
-Presentación de la defensa: [`presentacion/Testia-Defensa_UD1.pdf`](presentacion/Testia-Defensa_UD1.pdf).
+Presentación de la defensa: [`presentacion/Testia-Defensa_UD1.pdf`](presentacion/Testia-Defensa_UD1.pdf) (15 diapositivas ordenadas según la rúbrica, versión `v1.1-vercel`) y su guion con las notas de cada diapositiva y la demo paso a paso: [`presentacion/guion-defensa.md`](presentacion/guion-defensa.md).
 
 > Estado: Vercel + Clerk actualizados a `v1.1-vercel` (clave de IA rotada, modelos gratuitos renovados, carga sin saltos, registro visible) y verificados con sesión real, test generado y rechazo sin token. Docker (`v0.5-docker`) y AWS EC2 (`v1.0-aws`) verificados en octubre; EC2 se actualizará a la nueva versión en la siguiente fase.
 
@@ -445,4 +445,4 @@ Evidencias en [`evidencias/`](evidencias/) (nombre, correo, ID de cuenta e IP de
 | Docker y AWS (3,0) | §8, §9, §10 | Imagen única multietapa, `docker ps`/`logs`, EC2 Amazon Linux 2023 + Security Group 22/80, reinicio y actualización, `aws-ec2-*.png`, `docker-app.png` |
 | Seguridad y configuración (1,0) | §5, §7, §11 | Secretos solo en `.env`/Vercel/`--env-file`, clave pública vs. secreta, `401` sin token, `503` si falta configuración, SSH limitado a `/32`, escaneo sin secretos en el historial |
 | Documentación y Git (1,0) | §2, §11, §12 | Plan de documentación (Diátaxis), 14 incidencias reales, tags `v0.1`–`v1.1`, releases y capturas explicadas |
-| Defensa y demo (1,5) | Presentación | [`presentacion/`](presentacion/): guion con demo en ambos entornos, petición autenticada y rechazo sin token |
+| Defensa y demo (1,5) | Presentación | [`Testia-Defensa_UD1.pdf`](presentacion/Testia-Defensa_UD1.pdf) (una sección por criterio) y [`guion-defensa.md`](presentacion/guion-defensa.md): demo en ambos entornos, petición autenticada, rechazo sin token y plan B |
