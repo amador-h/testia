@@ -41,15 +41,17 @@ def usuario_autenticado(request: Request) -> str:
     `exp`/`nbf`; después se exige que `azp` sea uno de los orígenes permitidos.
     """
     secret_key = os.getenv("CLERK_SECRET_KEY")
-    if not secret_key:
-        logger.error("Falta CLERK_SECRET_KEY: se rechazan todas las peticiones a la IA")
     permitidos = _authorized_parties()
+    if not secret_key or not permitidos:
+        # Configuración incompleta: se cierra el paso en vez de aceptar cualquier origen.
+        logger.error("Falta CLERK_SECRET_KEY o CLERK_AUTHORIZED_PARTIES: la IA queda bloqueada")
+        raise HTTPException(status_code=503, detail="El servicio no está disponible ahora mismo.")
     estado = authenticate_request(
         request,
         AuthenticateRequestOptions(secret_key=secret_key, accepts_token=["session_token"]),
     )
     if not estado.is_signed_in:
         raise _rechazar(estado.reason.name if estado.reason else "?")
-    if permitidos and not _origen_permitido(estado.payload.get("azp"), permitidos):
+    if not _origen_permitido(estado.payload.get("azp"), permitidos):
         raise _rechazar("AZP_NO_PERMITIDO")
     return estado.payload["sub"]

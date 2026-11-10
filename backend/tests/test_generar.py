@@ -87,6 +87,7 @@ def test_json_invalido_del_modelo_es_error_controlado(monkeypatch):
 
 def test_sin_token_valido_se_rechaza_sin_llamar_a_la_ia(monkeypatch):
     monkeypatch.setenv("CLERK_SECRET_KEY", "sk_test_ficticia")
+    monkeypatch.setenv("CLERK_AUTHORIZED_PARTIES", "http://localhost:5173")
     del app.dependency_overrides[usuario_autenticado]  # validación real con el SDK de Clerk
     llamadas = []
     _usar(lambda req: llamadas.append(req))
@@ -97,6 +98,18 @@ def test_sin_token_valido_se_rechaza_sin_llamar_a_la_ia(monkeypatch):
     assert sin_token.status_code == 401 and token_falso.status_code == 401
     assert sin_token.headers["www-authenticate"] == "Bearer"
     assert llamadas == []
+
+
+def test_configuracion_de_clerk_incompleta_bloquea_la_ia(monkeypatch):
+    monkeypatch.setenv("CLERK_SECRET_KEY", "sk_test_ficticia")
+    monkeypatch.delenv("CLERK_AUTHORIZED_PARTIES", raising=False)
+    del app.dependency_overrides[usuario_autenticado]
+    llamadas = []
+    _usar(lambda req: llamadas.append(req))
+
+    r = client.post("/api/generar", json=VALIDO, headers={"Authorization": "Bearer no-es-un-jwt"})
+
+    assert r.status_code == 503 and llamadas == []
 
 
 def test_origenes_permitidos_admiten_comodin_de_preview():

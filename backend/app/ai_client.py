@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import re
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 from pydantic import ValidationError
@@ -11,7 +10,7 @@ from .schemas import GenerarRequest, GenerarResponse
 logger = logging.getLogger("test_repaso")
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-MODELO_POR_DEFECTO = "apodex/apodex-1.1-mini:free"
+MODELO_POR_DEFECTO = "nvidia/nemotron-3.5-super-vl:free"
 
 DIFICULTAD = {"facil": "fácil", "media": "media", "dificil": "difícil"}
 IDIOMA = {"es": "español", "en": "inglés"}
@@ -63,18 +62,17 @@ def _modelos() -> list[str]:
 
 
 def _extraer_json(texto: str) -> dict:
-    """Parsea el JSON aunque el modelo lo envuelva en texto o ```."""
-    texto = texto.strip()
+    """Lee el primer objeto JSON de la respuesta, aunque el modelo lo envuelva en ``` o añada texto después."""
+    inicio = texto.find("{")
+    if inicio == -1:
+        raise RespuestaInvalida("Respuesta sin JSON")
     try:
-        return json.loads(texto)
-    except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", texto, re.DOTALL)
-        if not match:
-            raise RespuestaInvalida("Respuesta sin JSON")
-        try:
-            return json.loads(match.group(0))
-        except json.JSONDecodeError as exc:
-            raise RespuestaInvalida("JSON mal formado") from exc
+        datos, _ = json.JSONDecoder().raw_decode(texto, inicio)
+    except json.JSONDecodeError as exc:
+        raise RespuestaInvalida("JSON mal formado") from exc
+    if not isinstance(datos, dict):
+        raise RespuestaInvalida("JSON sin objeto raíz")
+    return datos
 
 
 def generar_test(req: GenerarRequest) -> GenerarResponse:
