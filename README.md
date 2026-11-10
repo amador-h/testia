@@ -4,16 +4,16 @@ Práctica UD1 del módulo *Explotación de Servicios de Procesamiento y Analíti
 
 | Entorno | URL | Versión desplegada |
 | --- | --- | --- |
-| Vercel (serverless) | https://testia.vercel.app | `v0.4-auth` (commit `2e6f869`; los commits posteriores solo cambian documentación) |
-| AWS EC2 (Docker) | http://54.235.82.94 | `v1.0-aws` (commit `55ccc4d`) |
+| Vercel (serverless) | https://testia.vercel.app | `v1.1-vercel` (revisión de noviembre; despliegue `dpl_8zokEQi8BtiQoH2GQZRAHHafYkmz`) |
+| AWS EC2 (Docker) | http://54.235.82.94 | `v1.0-aws` (commit `55ccc4d`); pendiente de actualizar a `v1.1-vercel` |
 
 Presentación de la defensa: [`presentacion/Testia-Defensa_UD1.pdf`](presentacion/Testia-Defensa_UD1.pdf).
 
-> Estado: completo. Vercel + Clerk (`v0.4-auth`), Docker (`v0.5-docker`) y AWS EC2 (`v1.0-aws`) desplegados y verificados con sesión de Clerk y rechazo sin token.
+> Estado: Vercel + Clerk actualizados a `v1.1-vercel` (clave de IA rotada, modelos gratuitos renovados, carga sin saltos, registro visible) y verificados con sesión real, test generado y rechazo sin token. Docker (`v0.5-docker`) y AWS EC2 (`v1.0-aws`) verificados en octubre; EC2 se actualizará a la nueva versión en la siguiente fase.
 
 ## 1. Identificación
 
-- **Miniapp:** generador de tests tipo test con feedback (apuntes + nº de preguntas + dificultad → preguntas con explicación). Una pantalla, un formulario y una única operación de IA.
+- **Miniapp:** generador de tests tipo test con feedback (apuntes + nº de preguntas + dificultad → preguntas con explicación). Una pantalla, un formulario y una única operación de IA. La interfaz cabe en una pantalla de escritorio (el test se desplaza por dentro) y tiene un fondo decorativo de puntos en movimiento dibujado en `<canvas>` ([`FondoOndas.tsx`](frontend/src/FondoOndas.tsx): ~30 fps, se pausa con la pestaña oculta y queda quieto si el sistema pide *reducir movimiento*).
 - **Integrantes:** trabajo individual (autorizado) de **Juan Amador** · GitHub [`amador-h`](https://github.com/amador-h). Se encarga de todo: backend, frontend, Vercel, Clerk, Docker, AWS, pruebas y documentación.
 
 ## 2. Plan de documentación
@@ -49,14 +49,14 @@ flowchart LR
 
 ## 4. Requisitos e instalación local
 
-Versiones usadas: Python 3.14 (local) / 3.12 (Vercel y Docker), Node 24, npm 11, Docker 28, Git 2.48, Vercel CLI 63. Dependencias principales: FastAPI 0.143, openai 3.29, clerk-backend-api 7.0, React 19.3, Vite 8.3, Tailwind 4.3, @clerk/react 6.17.
+Versiones usadas: Python 3.13–3.14 (local) / 3.12 (Vercel y Docker), Node 24, npm 11, Docker 28, Git 2.48+, Vercel CLI 63 (local; el build de Vercel usa la 65). Dependencias principales (revisión de noviembre): FastAPI 0.162, openai 3.x, clerk-backend-api 7.1, React 19, Vite 8.3, Tailwind 4.3, @clerk/react 6.17, @clerk/localizations 4.23.
 
 ```bash
 # Backend
 python -m venv .venv
 .venv/Scripts/python -m pip install -e ".[dev]"   # Linux/macOS: .venv/bin/python
 cp .env.example .env                               # y rellena tus valores
-.venv/Scripts/python -m pytest                     # 6 tests, sin llamadas reales a la IA
+.venv/Scripts/python -m pytest                     # 7 tests, sin llamadas reales a la IA
 .venv/Scripts/python -m uvicorn backend.app.main:app --reload --port 8000
 
 # Frontend (en otra terminal)
@@ -65,7 +65,7 @@ cd frontend && npm ci && npm run dev               # http://localhost:5173 (prox
 
 Vite lee el mismo `.env` de la raíz (`envDir: '..'`) y solo expone al navegador las variables `VITE_*`.
 
-Comprobación: `GET /api/health` devuelve `{"status":"ok"}`; en la SPA, sin sesión el botón pide iniciar sesión y, con sesión, se genera el test.
+Comprobación: `GET /api/health` devuelve `{"status":"ok"}`; en la SPA, sin sesión el botón pide iniciar sesión (o crear cuenta) y, con sesión, se genera el test. *Probar con un ejemplo* rellena unos apuntes de muestra.
 
 ## 5. Variables de entorno
 
@@ -108,6 +108,11 @@ Valores de `CLERK_AUTHORIZED_PARTIES` por entorno:
 | `vercel project rename …` + `vercel domains add …` | Nombre definitivo de la app: **Testia** | `testia.vercel.app` responde en producción |
 | `vercel logs --environment production --since 2h --no-follow` | Diagnosticar | Muestra los rechazos `SESSION_TOKEN_MISSING` / `TOKEN_INVALID` y, antes, un `403` de OpenRouter (ver sección 11) |
 | `vercel inspect <url>` | Inspeccionar alias y función | Una función `fastapi` en `iad1` |
+| `vercel env rm OPENROUTER_API_KEY <entorno>` + `vercel env add … --sensitive --yes` (valor por stdin) | Rotar la clave de OpenRouter caducada (noviembre) | Clave nueva en Production y Preview, mostrada como `Hidden` |
+| `vercel env rm/add OPENROUTER_MODEL <entorno>` | Sustituir los modelos gratuitos retirados | Lista nueva en ambos entornos (incidencia 14) |
+| `vercel deploy` → comprobar → `vercel deploy --prod` | Publicar `v1.1-vercel` validando antes la Preview | Preview `READY` con `/api/health` `200` y `401` sin token; después alias `https://testia.vercel.app` |
+| `vercel api /v6/deployments/<id>/files` | Ver qué archivos se subieron al despliegue | 27 archivos fuente, sin `.env` ni claves |
+| `vercel logs --environment production --since 1h --no-follow` | Verificar la IA tras la rotación | `POST /api/generar` → OpenRouter `200 OK`; rechazos `SESSION_TOKEN_MISSING`/`TOKEN_INVALID` sin token |
 
 Subida de un secreto sin que aparezca en el comando ni en el historial (PowerShell):
 
@@ -129,16 +134,19 @@ Variables del proyecto (`vercel env ls`; los secretos no se pueden leer, la clav
  OPENROUTER_TIMEOUT_SECONDS   Hidden           Secret   Preview / Production
 ```
 
+**URL y versión desplegada:** https://testia.vercel.app · tag `v1.1-vercel` (despliegue de producción `dpl_8zokEQi8BtiQoH2GQZRAHHafYkmz`, creado con `vercel deploy --prod` desde el árbol de trabajo de ese tag).
+
 **Protección:** las Preview siguen protegidas por *Vercel Authentication* (*Standard Protection*); la URL de producción es pública para la evaluación, y la API de IA la protege Clerk.
 
 ## 7. Clerk
 
-- **Instancia:** aplicación `IZV` en entorno de **desarrollo** (claves `pk_test_` / `sk_test_`, aviso *Development mode* en el modal), como indica el enunciado. La etiqueta *Production* de Vercel no la convierte en producción.
+- **Instancia:** aplicación `IZV` en entorno de **desarrollo** (claves `pk_test_` / `sk_test_`), como indica el enunciado. La etiqueta *Production* de Vercel no la convierte en producción. Desde la revisión de noviembre, la SPA oculta la etiqueta *Development mode* de los modales (`appearance.options.unsafe_disableDevelopmentModeWarnings`): es solo estética, la instancia sigue siendo de desarrollo (la consola del navegador lo sigue avisando y las capturas de `evidencias/` muestran la etiqueta). Pasar a producción exigiría un dominio propio.
 - **Configuración** (*Configure → User & authentication*): registro e inicio de sesión con **correo electrónico + código de verificación** (sin enlace mágico) y botón *Continuar con Google*. No se ha creado ninguna base de datos propia: las identidades las gestiona Clerk.
 - **Cuentas:** las pruebas se hicieron con la cuenta del centro del alumno (sus datos se ocultan en las capturas). Para la demo se usa un usuario de prueba creado en *Users*, sin datos personales.
 - **Comprobación en Clerk:** *Logs → Application* registra `sign_in.created`, `sign_in.email_address.verified`, `sign_in.completed` y `session.created` para cada inicio de sesión.
-- **SPA** (`@clerk/react`): `ClerkProvider` con la clave pública y textos en español; en la cabecera, *Iniciar sesión* (modal de Clerk) o *Cerrar sesión* + `UserButton`. Sin sesión, el botón del formulario abre el inicio de sesión. Al enviar, `getToken()` obtiene el token y se manda como `Authorization: Bearer`.
-- **Backend** ([`backend/app/auth.py`](backend/app/auth.py)): dependencia `usuario_autenticado` en `POST /api/generar` con el SDK oficial `clerk-backend-api` (`authenticate_request`): descarga la JWKS con `CLERK_SECRET_KEY`, comprueba **firma**, **caducidad** (`exp`/`nbf`), que el token sea de sesión y que el **`azp`** esté en `CLERK_AUTHORIZED_PARTIES`. Si falla → `401` con `WWW-Authenticate: Bearer` y la IA no se llama. En los logs solo se registra el motivo (`SESSION_TOKEN_MISSING`, `TOKEN_INVALID`, `AZP_NO_PERMITIDO`…), nunca el token. `/api/health` sigue siendo público y no revela nada.
+- **SPA** (`@clerk/react`): `ClerkProvider` con la clave pública, textos en español y los colores de la app. En la cabecera, *Iniciar sesión* y *Crear cuenta* (modales de Clerk `SignInButton`/`SignUpButton`) o, con sesión, *Cerrar sesión* + `UserButton`. Sin sesión, el botón del formulario abre el inicio de sesión y debajo hay un enlace *Créala gratis* al registro. Mientras Clerk carga (`useAuth().isLoaded`) se pintan huecos del mismo tamaño que los botones, para que la página no salte. Al enviar, `getToken()` obtiene el token y se manda como `Authorization: Bearer`.
+- **Registro de usuarios:** lo gestiona Clerk (modo de registro *Public*, correo + contraseña o Google); la app no guarda usuarios. Clerk es quien envía el código de verificación del correo.
+- **Backend** ([`backend/app/auth.py`](backend/app/auth.py)): dependencia `usuario_autenticado` en `POST /api/generar` con el SDK oficial `clerk-backend-api` (`authenticate_request`): descarga la JWKS con `CLERK_SECRET_KEY`, comprueba **firma**, **caducidad** (`exp`/`nbf`), que el token sea de sesión y que el **`azp`** esté en `CLERK_AUTHORIZED_PARTIES`. Si falla → `401` con `WWW-Authenticate: Bearer` y la IA no se llama. Si falta `CLERK_SECRET_KEY` o `CLERK_AUTHORIZED_PARTIES`, responde `503` y tampoco llama a la IA (la configuración incompleta cierra el paso en lugar de aceptar cualquier origen). En los logs solo se registra el motivo (`SESSION_TOKEN_MISSING`, `TOKEN_INVALID`, `AZP_NO_PERMITIDO`…), nunca el token. `/api/health` sigue siendo público y no revela nada.
 - **Orígenes y redirecciones:** no se usa CORS (SPA y API comparten origen en todos los entornos). La instancia de desarrollo de Clerk acepta cualquier origen, así que el control está en el backend: `CLERK_AUTHORIZED_PARTIES` fija, por entorno, qué orígenes (`azp`) son válidos (tabla de la sección 5). El inicio de sesión es un modal (sin redirección de ida) y tras cerrar sesión se vuelve a `/` (`afterSignOutUrl`), que es la misma ruta en Vercel, Docker y EC2; por eso no hay que registrar URLs de redirección.
 - **Ocultar el botón no es la protección:** la protección real es la validación en FastAPI.
 
@@ -300,9 +308,10 @@ INFO:     IP_CLIENTE - "POST /api/generar HTTP/1.1" 200 OK
 | `test_fallo_del_proveedor_es_error_controlado` | Error del proveedor → `502` sin filtrar detalles internos |
 | `test_json_invalido_del_modelo_es_error_controlado` | El modelo devuelve algo que no es JSON → `502` |
 | `test_sin_token_valido_se_rechaza_sin_llamar_a_la_ia` | Sin token o con token falso → `401` y la IA no se llama (validación real con el SDK) |
+| `test_configuracion_de_clerk_incompleta_bloquea_la_ia` | Sin `CLERK_AUTHORIZED_PARTIES` → `503` y la IA no se llama (no se acepta cualquier origen) |
 | `test_origenes_permitidos_admiten_comodin_de_preview` | El comodín de `azp` acepta las Preview y rechaza otros dominios |
 
-Resultado: `6 passed`.
+Resultado: `7 passed`.
 
 **Comprobaciones manuales:**
 
@@ -314,6 +323,8 @@ Resultado: `6 passed`.
 | Con token inventado | `401` (`TOKEN_INVALID`) | `401` (`TOKEN_INVALID`) |
 | Inicio de sesión + test generado | `200`, OpenRouter `200 OK` | `200` |
 | Puertos no publicados (8000, 2375) | — | Cerrados |
+
+Última verificación en Vercel (`v1.1-vercel`, noviembre), desde fuera y sin sesión de Vercel: SPA `200`, `/api/health` `{"status":"ok"}`, `POST /api/generar` sin token y con token inventado → `401`; con sesión de Clerk, test de 5 preguntas generado (OpenRouter `200 OK` en `vercel logs`). En el navegador: *Cumulative Layout Shift* 0, Clerk listo a los ~2,9 s y la app cabe en una pantalla de 1366×660 sin desplazar la página.
 
 **Estado y logs en EC2:**
 
@@ -377,6 +388,21 @@ En Vercel, el proyecto se puede conservar (plan gratuito) o borrar con `vercel p
 9. **El repositorio Git se creó tarde.** Las fases 1–3 se hicieron sin Git. Al integrar Clerk se creó el repositorio y se **reconstruyó el historial por fases** con los ficheros reales de cada fase (backend → frontend → configuración de Vercel), para que cada tag apunte a un commit distinto. Las fechas de esos commits son las de la reconstrucción, no las del trabajo original. Antes de publicar el repositorio se reescribieron también la autoría (cuenta de GitHub `amador-h`, correo *noreply*) y los valores de ejemplo de `.env.example` (incidencia 11); el contenido de cada fase no cambió.
 10. **`401 TOKEN_NOT_ACTIVE_YET` solo en Docker local.** *Síntoma:* con sesión iniciada en http://localhost:8080, los primeros envíos devolvían `401`; en Vercel funcionaba. *Diagnóstico:* `docker logs testia` mostraba `Petición rechazada por autenticación: TOKEN_NOT_ACTIVE_YET`; comparando `date -u` del host y del contenedor con la cabecera `Date` de un servidor externo, el reloj de Windows (y el del contenedor, que lo hereda) iba ~34 s atrasado, así que el `nbf` de los tokens de Clerk (vida de 60 s) quedaba "en el futuro" más allá del margen de 5 s del SDK. *Solución:* sincronizar la hora de Windows (*Configuración → Hora e idioma → Sincronizar ahora*); no se amplía el margen de validación para no relajar la seguridad. En EC2 el reloj se sincroniza con NTP (`chrony`). *Comprobación:* `POST /api/generar` → `200 OK` en los logs del contenedor.
 11. **GitHub rechazó el primer `git push`** (`GH013: Repository rule violations — Push cannot contain secrets — Stripe Test API Secret Key`, en `.env.example:14`). *Diagnóstico:* falso positivo de *Push Protection*: el valor ficticio (`sk_test_` seguido de 24 letras `x`) tiene el formato de una clave de Stripe. Se comprobó con `git grep` en todo el historial que no había ninguna clave real. *Solución:* no se pidió a GitHub que lo ignorara; se cambiaron los ejemplos por `sk_test_PON_AQUI_TU_CLAVE` (y equivalentes) en todo el historial, antes de que el repositorio tuviera contenido público. *Comprobación:* `git push` de `main` y de los tags aceptado.
+12. **La web "parpadeaba" al cargar.** *Síntoma:* al abrir https://testia.vercel.app los botones de sesión de la cabecera y el botón del formulario aparecían de golpe unos segundos después, y el panel derecho se recolocaba. *Diagnóstico:* con la *Resource Timing API* del navegador, la SPA se pintaba a los ~0,8 s, pero Clerk no estaba listo hasta ~3,5 s (descarga en cadena de `clerk.browser.js`, `ui.browser.js`, `/v1/dev_browser`, `/v1/environment` y `/v1/client`); hasta entonces los componentes `<Show>` no pintaban nada. *Solución:* mientras `useAuth().isLoaded` es falso se pintan huecos del mismo tamaño (cabecera) y un botón *Cargando…*; `vite.config.ts` añade un `<link rel="preconnect">` al dominio de Clerk (sacado de la clave pública al compilar) para adelantar la conexión, e `index.html` fija el color de fondo desde el primer pintado (sin destello en modo oscuro). *Comprobación:* *Cumulative Layout Shift* 0,0015 frente a 0,0042, y sin elementos que aparezcan de la nada.
+13. **El registro de usuarios no se encontraba.** *Síntoma:* "solo deja iniciar sesión". *Diagnóstico:* el registro estaba activo en Clerk (modo *Public*) pero solo se llegaba con el enlace pequeño *Regístrese* del modal de inicio de sesión. *Solución:* botón *Crear cuenta* (`SignUpButton`) en la cabecera y enlace *Créala gratis* bajo el botón del formulario. Se descartó el flujo combinado `withSignUp` porque su título no está traducido (*Continue to…*). *Comprobación:* *Crear cuenta* abre directamente el modal *Crea tu cuenta*.
+14. **Caducó la clave de OpenRouter y desaparecieron los modelos gratuitos.** *Síntoma:* el test dejó de generarse. *Diagnóstico:* además de la clave caducada, al consultar `https://openrouter.ai/api/v1/models` dos de los tres modelos de `OPENROUTER_MODEL` (`apodex/apodex-1.1-mini:free` y `nvidia/nemotron-3-super-120b-a12b:free`) ya no existían. *Solución:* clave nueva (solo en `.env` y en las variables de Vercel, subida por stdin con `vercel env rm` + `vercel env add --sensitive`) y lista de modelos `:free` elegida probando los gratuitos del día con una llamada real de 3 preguntas a cada uno:
+
+| Modelo | Resultado |
+| --- | --- |
+| `nvidia/nemotron-3.5-super-vl:free` | Válido y rápido (3 preguntas en 2,5–3,9 s, 10 en 9,7 s) → **principal** |
+| `nvidia/nemotron-3-ultra-550b-a55b:free` | Válido, más lento (8–14 s) → respaldo |
+| `dots-studio/dots-3-note-preview:free` | Válido (7 s) → respaldo |
+| `nvidia/nemotron-3.5-lightning:free` | Inestable: a veces JSON válido y a veces no |
+| `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` | JSON mal anidado |
+| `google/gemma-4-26b-a4b-it:free`, `google/gemma-4-31b-it:free`, `xingchen-agi/xing4.0-29b-a4b:free` | `429` (limitados por el proveedor ese día) |
+| `recursive/flint-v1.0:free` | `400`: no permite desactivar el razonamiento |
+
+Además, `_extraer_json` ahora lee el **primer** objeto JSON con `json.JSONDecoder().raw_decode` en lugar de una expresión regular: algunos modelos añaden texto después del JSON y antes se rechazaba la respuesta entera. El modelo por defecto del código pasa a `nvidia/nemotron-3.5-super-vl:free`. Los modelos gratuitos cambian a menudo: antes de una demo conviene comprobar la lista con esa URL.
 
 ## 12. Git y evidencias
 
@@ -388,8 +414,9 @@ En Vercel, el proyecto se puede conservar (plan gratuito) o borrar con `vercel p
 | `v0.4-auth` | Clerk en SPA y backend, redespliegue | https://testia.vercel.app |
 | `v0.5-docker` | Imagen única probada en local | http://localhost:8080 |
 | `v1.0-aws` | Despliegue en EC2 con Docker | http://54.235.82.94 |
+| `v1.1-vercel` | Revisión: clave y modelos de IA renovados, configuración de Clerk incompleta → `503`, carga sin saltos, registro visible, nueva interfaz | https://testia.vercel.app |
 
-Cada tag tiene su [release de GitHub](https://github.com/amador-h/testia/releases) con un resumen del hito; `v1.0-aws` es la versión final (*Latest*).
+Cada tag tiene su [release de GitHub](https://github.com/amador-h/testia/releases) con un resumen del hito.
 
 Evidencias en [`evidencias/`](evidencias/) (nombre, correo, ID de cuenta e IP del administrador ocultos):
 
@@ -406,4 +433,16 @@ Evidencias en [`evidencias/`](evidencias/) (nombre, correo, ID de cuenta e IP de
 | [`aws-ec2-security-groups.png`](evidencias/aws-ec2-security-groups.png) | Reglas de entrada de `testia-sg`: SSH (TCP 22) solo desde la IP del administrador (`/32`, oculta) y HTTP (TCP 80) desde `0.0.0.0/0`; ningún otro puerto. |
 | [`aws-clerk-login.png`](evidencias/aws-clerk-login.png) | En http://54.235.82.94 (el navegador avisa de *No seguro*: HTTP), Clerk funciona y sin sesión no se puede generar. |
 | [`aws-clerk-session-test.png`](evidencias/aws-clerk-session-test.png) | En EC2, con sesión iniciada, test generado con respuesta real de la IA (en `docker logs`: `POST /api/generar` → `200 OK`). |
+| [`vercel-v1.1-test-generado.png`](evidencias/vercel-v1.1-test-generado.png) | Versión `v1.1-vercel` en https://testia.vercel.app con sesión iniciada (*Cerrar sesión* + menú de usuario): test de 5 preguntas generado con la IA real, feedback de cada respuesta y resultado 3/5. Se ve el nuevo diseño (fondo animado, formulario y test en una pantalla). |
 | Salidas de consola (secciones 6–10) | `vercel env ls` sin valores, rechazo `401` sin token en Vercel y EC2, `docker ps`/`docker logs` en local y en EC2, instancia y Security Group con la AWS CLI. |
+
+**Dónde se acredita cada criterio de la rúbrica:**
+
+| Criterio (puntos) | Dónde | Evidencia principal |
+| --- | --- | --- |
+| Aplicación mínima (1,0) | §1, §3, §10 | FastAPI + OpenRouter → JSON validado con Pydantic; SPA React + TypeScript + Tailwind de una pantalla y un formulario; 7 tests `pytest` |
+| Vercel (2,5) | §6, §7 | Proyecto único `testia` (CDN + Vercel Function), tabla de operaciones reales de CLI, Clerk integrado y redesplegado, `vercel-pannel.png`, `vercel-env-vars.png` |
+| Docker y AWS (3,0) | §8, §9, §10 | Imagen única multietapa, `docker ps`/`logs`, EC2 Amazon Linux 2023 + Security Group 22/80, reinicio y actualización, `aws-ec2-*.png`, `docker-app.png` |
+| Seguridad y configuración (1,0) | §5, §7, §11 | Secretos solo en `.env`/Vercel/`--env-file`, clave pública vs. secreta, `401` sin token, `503` si falta configuración, SSH limitado a `/32`, escaneo sin secretos en el historial |
+| Documentación y Git (1,0) | §2, §11, §12 | Plan de documentación (Diátaxis), 14 incidencias reales, tags `v0.1`–`v1.1`, releases y capturas explicadas |
+| Defensa y demo (1,5) | Presentación | [`presentacion/`](presentacion/): guion con demo en ambos entornos, petición autenticada y rechazo sin token |
