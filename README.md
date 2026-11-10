@@ -5,11 +5,11 @@ Práctica UD1 del módulo *Explotación de Servicios de Procesamiento y Analíti
 | Entorno | URL | Versión desplegada |
 | --- | --- | --- |
 | Vercel (serverless) | https://testia.vercel.app | `v1.1-vercel` (revisión de noviembre; despliegue `dpl_8zokEQi8BtiQoH2GQZRAHHafYkmz`) |
-| AWS EC2 (Docker) | http://54.235.82.94 | `v1.0-aws` (commit `55ccc4d`); pendiente de actualizar a `v1.1-vercel` |
+| AWS EC2 (Docker) | http://54.235.82.94 | `v1.1-vercel` (imagen `testia:0406d72`; antes `v1.0-aws`, `testia:55ccc4d`) |
 
 Presentación de la defensa: [`presentacion/Testia-Defensa_UD1.pdf`](presentacion/Testia-Defensa_UD1.pdf) (15 diapositivas ordenadas según la rúbrica, versión `v1.1-vercel`) y su guion con las notas de cada diapositiva y la demo paso a paso: [`presentacion/guion-defensa.md`](presentacion/guion-defensa.md).
 
-> Estado: Vercel + Clerk actualizados a `v1.1-vercel` (clave de IA rotada, modelos gratuitos renovados, carga sin saltos, registro visible) y verificados con sesión real, test generado y rechazo sin token. Docker (`v0.5-docker`) y AWS EC2 (`v1.0-aws`) verificados en octubre; EC2 se actualizará a la nueva versión en la siguiente fase.
+> Estado: los dos entornos ejecutan `v1.1-vercel` (clave de IA rotada, modelos gratuitos renovados, carga sin saltos, registro visible). Vercel verificado con sesión real, test generado y rechazo sin token; EC2 actualizado con el procedimiento de la sección 10 y verificado desde fuera (SPA nueva, `/api/health`, `401` sin token, IA real desde el contenedor, reinicio).
 
 ## 1. Identificación
 
@@ -140,7 +140,7 @@ Variables del proyecto (`vercel env ls`; los secretos no se pueden leer, la clav
 
 ## 7. Clerk
 
-- **Instancia:** aplicación `IZV` en entorno de **desarrollo** (claves `pk_test_` / `sk_test_`), como indica el enunciado. La etiqueta *Production* de Vercel no la convierte en producción. Desde la revisión de noviembre, la SPA oculta la etiqueta *Development mode* de los modales (`appearance.options.unsafe_disableDevelopmentModeWarnings`): es solo estética, la instancia sigue siendo de desarrollo (la consola del navegador lo sigue avisando y las capturas de `evidencias/` muestran la etiqueta). Pasar a producción exigiría un dominio propio.
+- **Instancia:** aplicación `TestIA` (antes `IZV`) en entorno de **desarrollo** (claves `pk_test_` / `sk_test_`), como indica el enunciado. La etiqueta *Production* de Vercel no la convierte en producción. Desde la revisión de noviembre, la SPA oculta la etiqueta *Development mode* de los modales (`appearance.options.unsafe_disableDevelopmentModeWarnings`): es solo estética, la instancia sigue siendo de desarrollo (la consola del navegador lo sigue avisando y las capturas de `evidencias/` muestran la etiqueta). Pasar a producción exigiría un dominio propio.
 - **Configuración** (*Configure → User & authentication*): registro e inicio de sesión con **correo electrónico + código de verificación** (sin enlace mágico) y botón *Continuar con Google*. No se ha creado ninguna base de datos propia: las identidades las gestiona Clerk.
 - **Cuentas:** las pruebas se hicieron con la cuenta del centro del alumno (sus datos se ocultan en las capturas). Para la demo se usa un usuario de prueba creado en *Users*, sin datos personales.
 - **Comprobación en Clerk:** *Logs → Application* registra `sign_in.created`, `sign_in.email_address.verified`, `sign_in.completed` y `session.created` para cada inicio de sesión.
@@ -197,7 +197,7 @@ INFO:     172.17.0.1:51944 - "POST /api/generar HTTP/1.1" 200 OK
 
 ## 9. AWS
 
-**Cuenta:** AWS Academy *Learner Lab* (región `us-east-1`; credenciales temporales de la sesión del lab en `~/.aws/credentials`, nunca en el repositorio). Todo se creó con la **AWS CLI 2.37** desde PowerShell, para que los pasos sean reproducibles.
+**Cuenta:** AWS Academy *Learner Lab* (región `us-east-1`; credenciales temporales de la sesión del lab en `~/.aws/credentials`, nunca en el repositorio). Todo se creó con la **AWS CLI 2.37** desde PowerShell, para que los pasos sean reproducibles. La actualización de noviembre se hizo desde otro equipo con la AWS CLI 1.46 (paquete oficial `awscli` instalado con `pip` en un entorno virtual, sin permisos de administrador).
 
 | Recurso | Valor | Motivo |
 | --- | --- | --- |
@@ -253,11 +253,22 @@ sudo docker run --rm hello-world            # comprobación (imagen borrada desp
 ```bash
 sudo mkdir -p /opt/testia && sudo chown ec2-user: /opt/testia && cd /opt/testia
 git clone https://github.com/amador-h/testia.git app && cd app
-git checkout v1.0-aws
+git checkout v1.1-vercel                    # en octubre: v1.0-aws
 docker build --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_test_... -t testia:$(git rev-parse --short HEAD) .
 ```
 
-**Variables en EC2:** archivo privado `/opt/testia/testia.env` (fuera del repositorio clonado, `chmod 600`, dueño `ec2-user`) con `OPENROUTER_*`, `CLERK_SECRET_KEY` y `CLERK_AUTHORIZED_PARTIES=http://54.235.82.94`. Se creó enviando el contenido por la entrada estándar de SSH (`... | ssh ec2-user@IP "umask 077; cat > /opt/testia/testia.env"`), así que los valores no aparecen en ningún comando ni en el historial. La clave pública de Clerk no va en este archivo: entra en el bundle con `--build-arg`.
+**Variables en EC2:** archivo privado `/opt/testia/testia.env` (fuera del repositorio clonado, `chmod 600`, dueño `ec2-user`) con `OPENROUTER_*`, `CLERK_SECRET_KEY` y `CLERK_AUTHORIZED_PARTIES=http://54.235.82.94`. Se creó enviando el contenido por la entrada estándar de SSH (`... | ssh ec2-user@IP "umask 077; cat > /opt/testia/testia.env"`), así que los valores no aparecen en ningún comando ni en el historial. La clave pública de Clerk no va en este archivo: entra en el bundle con `--build-arg`. En noviembre solo se sustituyeron `OPENROUTER_API_KEY` y `OPENROUTER_MODEL`, enviando esas dos líneas por stdin y reemplazándolas en el archivo (sigue con `600` y las variables de Clerk intactas).
+
+**Administrar desde otro equipo sin copiar la clave privada** (usado en noviembre): se añade una regla SSH temporal con la IP del equipo, se entra con una clave efímera publicada con **EC2 Instance Connect** (válida 60 s) y al terminar se revoca la regla. El Security Group vuelve a sus dos reglas y no queda ninguna clave en la instancia.
+
+```bash
+aws ec2 authorize-security-group-ingress --group-id <sg> --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=<ip-del-equipo>/32}]"
+ssh-keygen -t ed25519 -N "" -f ec2-temporal
+aws ec2-instance-connect send-ssh-public-key --instance-id i-0b4ff0c5a687e115d --instance-os-user ec2-user \
+  --availability-zone us-east-1b --ssh-public-key file://ec2-temporal.pub
+ssh -i ec2-temporal ec2-user@54.235.82.94          # en los 60 s siguientes
+aws ec2 revoke-security-group-ingress --group-id <sg> --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=<ip-del-equipo>/32}]"
+```
 
 **Ejecución (un único contenedor):**
 
@@ -295,6 +306,23 @@ INFO:     IP_CLIENTE - "POST /api/generar HTTP/1.1" 401 Unauthorized
 Petición rechazada por autenticación: TOKEN_INVALID
 INFO:     IP_CLIENTE - "POST /api/generar HTTP/1.1" 401 Unauthorized
 INFO:     IP_CLIENTE - "POST /api/generar HTTP/1.1" 200 OK
+```
+
+Estado tras la actualización de noviembre (`v1.1-vercel`):
+
+```console
+$ docker ps --format '{{.Names}} {{.Image}} {{.Status}} {{.Ports}}'
+testia testia:0406d72 Up 32 seconds (healthy) 0.0.0.0:80->8000/tcp, :::80->8000/tcp
+$ docker inspect testia --format 'reinicio={{.HostConfig.RestartPolicy.Name}} usuario={{.Config.User}}'
+reinicio=unless-stopped usuario=app
+$ docker images testia
+testia:0406d72   184MB   (v1.1-vercel, en ejecución)
+testia:55ccc4d   180MB   (v1.0-aws, se conserva para volver atrás)
+$ docker logs testia | grep generar
+Petición rechazada por autenticación: SESSION_TOKEN_MISSING
+INFO:     IP_CLIENTE - "POST /api/generar HTTP/1.1" 401 Unauthorized
+Petición rechazada por autenticación: TOKEN_INVALID
+INFO:     IP_CLIENTE - "POST /api/generar HTTP/1.1" 401 Unauthorized
 ```
 
 ## 10. Operación y verificación
@@ -358,6 +386,19 @@ $ curl http://54.235.82.94/api/health          -> 200 {"status":"ok"}
 $ curl -X POST http://54.235.82.94/api/generar -> 401 (sin token)
 ```
 
+Procedimiento ejecutado en noviembre para pasar EC2 de `v1.0-aws` a `v1.1-vercel` (desde otro equipo, con EC2 Instance Connect):
+
+```console
+$ git fetch --tags && git checkout v1.1-vercel        # commit 0406d72
+$ docker build ... -t testia:0406d72 .                # en segundo plano con nohup; ~5 min en el t3.micro
+antes:   testia:55ccc4d Up 19 minutes (healthy)
+después: testia:0406d72 Up 32 seconds (healthy) 0.0.0.0:80->8000/tcp
+```
+
+Antes del cambio se actualizaron en `testia.env` la clave de OpenRouter y la lista de modelos (sección 9); sin eso la web nueva se habría servido, pero la IA habría fallado.
+
+Última verificación en EC2 (`v1.1-vercel`, noviembre), desde fuera de AWS: SPA `200` con el bundle nuevo (botón *Crear cuenta*, *Probar con un ejemplo* y sin la etiqueta *Development mode* en el modal de Clerk, que funciona aunque el origen sea HTTP), `/api/health` `{"status":"ok"}`, `POST /api/generar` sin token y con token inventado → `401` con `WWW-Authenticate: Bearer`, puertos 8000 y 2375 cerrados, llamada real a la IA desde el contenedor con sus variables (3 preguntas en 3,7 s), y tras `docker restart testia` vuelve `healthy` y `/api/health` responde.
+
 Hasta el `prune` la imagen anterior se conserva con su etiqueta, así que volver atrás es arrancar el contenedor con la etiqueta antigua. En Vercel, una actualización es `vercel deploy` (Preview), comprobar, y `vercel deploy --prod`.
 
 **Disponibilidad para la defensa y retirada de recursos:**
@@ -403,6 +444,7 @@ En Vercel, el proyecto se puede conservar (plan gratuito) o borrar con `vercel p
 | `recursive/flint-v1.0:free` | `400`: no permite desactivar el razonamiento |
 
 Además, `_extraer_json` ahora lee el **primer** objeto JSON con `json.JSONDecoder().raw_decode` en lugar de una expresión regular: algunos modelos añaden texto después del JSON y antes se rechazaba la respuesta entera. El modelo por defecto del código pasa a `nvidia/nemotron-3.5-super-vl:free`. Los modelos gratuitos cambian a menudo: antes de una demo conviene comprobar la lista con esa URL.
+15. **Actualizar EC2 desde un equipo sin la clave SSH.** *Síntoma:* EC2 seguía en `v1.0-aws` (diseño antiguo y etiqueta *Development mode* de Clerk), el puerto 22 estaba filtrado desde el nuevo equipo y allí no había ni AWS CLI ni `testia-ec2.pem`. *Diagnóstico:* el Security Group solo admite SSH desde la IP del PC del administrador y la clave privada solo existe en ese PC; además, `testia.env` de la instancia seguía con la clave caducada y los modelos retirados (incidencia 14), así que actualizar solo el código habría dejado la IA sin funcionar. *Solución:* AWS CLI instalada con `pip`, regla SSH temporal `/32` para la IP del equipo y acceso con una clave efímera de **EC2 Instance Connect** (sección 9); se sustituyeron por stdin solo las dos variables de OpenRouter; build de `v1.1-vercel` en segundo plano y cambio de contenedor conservando la imagen anterior; al final se revocó la regla temporal. Durante la espera del build hubo un fallo de procedimiento: el bucle que esperaba con `pgrep -f "docker build"` se encontraba a sí mismo (su propia línea de órdenes contiene ese texto) y no terminaba; se comprobó el log directamente (`naming to testia:0406d72 done`) y en adelante conviene esperar por el PID que devuelve `$!`. *Comprobación:* sección 10 (SPA nueva, `401` sin token, IA real desde el contenedor, reinicio) y Security Group de nuevo con sus dos reglas.
 
 ## 12. Git y evidencias
 
@@ -414,7 +456,7 @@ Además, `_extraer_json` ahora lee el **primer** objeto JSON con `json.JSONDecod
 | `v0.4-auth` | Clerk en SPA y backend, redespliegue | https://testia.vercel.app |
 | `v0.5-docker` | Imagen única probada en local | http://localhost:8080 |
 | `v1.0-aws` | Despliegue en EC2 con Docker | http://54.235.82.94 |
-| `v1.1-vercel` | Revisión: clave y modelos de IA renovados, configuración de Clerk incompleta → `503`, carga sin saltos, registro visible, nueva interfaz | https://testia.vercel.app |
+| `v1.1-vercel` | Revisión: clave y modelos de IA renovados, configuración de Clerk incompleta → `503`, carga sin saltos, registro visible, nueva interfaz | https://testia.vercel.app y http://54.235.82.94 |
 
 Cada tag tiene su [release de GitHub](https://github.com/amador-h/testia/releases) con un resumen del hito.
 
@@ -444,5 +486,5 @@ Evidencias en [`evidencias/`](evidencias/) (nombre, correo, ID de cuenta e IP de
 | Vercel (2,5) | §6, §7 | Proyecto único `testia` (CDN + Vercel Function), tabla de operaciones reales de CLI, Clerk integrado y redesplegado, `vercel-pannel.png`, `vercel-env-vars.png` |
 | Docker y AWS (3,0) | §8, §9, §10 | Imagen única multietapa, `docker ps`/`logs`, EC2 Amazon Linux 2023 + Security Group 22/80, reinicio y actualización, `aws-ec2-*.png`, `docker-app.png` |
 | Seguridad y configuración (1,0) | §5, §7, §11 | Secretos solo en `.env`/Vercel/`--env-file`, clave pública vs. secreta, `401` sin token, `503` si falta configuración, SSH limitado a `/32`, escaneo sin secretos en el historial |
-| Documentación y Git (1,0) | §2, §11, §12 | Plan de documentación (Diátaxis), 14 incidencias reales, tags `v0.1`–`v1.1`, releases y capturas explicadas |
+| Documentación y Git (1,0) | §2, §11, §12 | Plan de documentación (Diátaxis), 15 incidencias reales, tags `v0.1`–`v1.1`, releases y capturas explicadas |
 | Defensa y demo (1,5) | Presentación | [`Testia-Defensa_UD1.pdf`](presentacion/Testia-Defensa_UD1.pdf) (una sección por criterio) y [`guion-defensa.md`](presentacion/guion-defensa.md): demo en ambos entornos, petición autenticada, rechazo sin token y plan B |
