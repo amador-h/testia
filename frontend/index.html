@@ -4,7 +4,16 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Testia convierte tus apuntes en un test de repaso con IA, con la explicación de cada respuesta." />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)" />
     <title>Testia · Tests de repaso con IA</title>
+    <!-- Fondo correcto desde el primer pintado (antes de que llegue el CSS): evita el destello blanco en modo oscuro. -->
+    <style>
+      html { background: #f8fafc; }
+      @media (prefers-color-scheme: dark) { html { background: #020617; } }
+    </style>
   </head>
   <body>
     <div id="root"></div>

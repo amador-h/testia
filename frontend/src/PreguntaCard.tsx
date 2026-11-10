@@ -60,7 +60,10 @@ export default function PreguntaCard({ numero, pregunta, onResponder }: Props) {
   }
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+    <article
+      className="aparecer rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900"
+      style={{ animationDelay: `${Math.min(numero - 1, 5) * 60}ms` }}
+    >
       <div className="mb-4 flex items-start gap-3">
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white tabular-nums">
           {numero}

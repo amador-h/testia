@@ -19,7 +19,18 @@ if (!PUBLISHABLE_KEY) {
 } else {
   root.render(
     <StrictMode>
-      <ClerkProvider publishableKey={PUBLISHABLE_KEY} localization={esES} afterSignOutUrl="/">
+      <ClerkProvider
+        publishableKey={PUBLISHABLE_KEY}
+        localization={esES}
+        afterSignOutUrl="/"
+        appearance={{
+          // Mismo acento y radio que la app para que los modales de Clerk no desentonen.
+          variables: { colorPrimary: '#4f46e5', borderRadius: '0.75rem', fontFamily: 'inherit' },
+          // La instancia sigue siendo de DESARROLLO (claves pk_test_/sk_test_, como pide el
+          // enunciado); esto solo oculta la etiqueta "Development mode" de los modales.
+          options: { unsafe_disableDevelopmentModeWarnings: true },
+        }}
+      >
         <App />
       </ClerkProvider>
     </StrictMode>,
